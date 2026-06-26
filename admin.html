@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShowDrinks Admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="admin-header">
+  <div class="header-brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M8 22h8M12 22v-4M6 2h12l-1 7H7L6 2zM7 9c0 5 10 5 10 0"/>
+    </svg>
+    ShowDrinks Admin
+  </div>
+  <div class="header-show-name" id="headerShowName">Loading…</div>
+  <div style="font-size:11px;opacity:.55;margin-left:12px" id="headerVersion"></div>
+</header>
+
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="show">Show &amp; Sessions</button>
+  <button class="tab-btn" data-tab="menu">Menu Items</button>
+  <button class="tab-btn" data-tab="locations">Locations</button>
+  <button class="tab-btn" data-tab="orders">Orders</button>
+  <button class="tab-btn" data-tab="settings">Settings &amp; QR</button>
+</nav>
+
+<main class="admin-content">
+
+  <!-- ── SHOW & SESSIONS ── -->
+  <div id="tab-show" class="tab-panel active">
+    <div class="section-header">
+      <h2>Show &amp; Sessions</h2>
+      <button class="btn btn-primary" id="saveShowBtn">Save Changes</button>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><h2>Show Details</h2></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="showName">Show Name</label>
+          <input type="text" id="showName" class="form-control" placeholder="e.g. Summer Concert 2026">
+        </div>
+        <div class="form-group">
+          <label>Show Dates</label>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input type="date" id="newDateInput" class="form-control">
+            <button class="btn btn-primary" id="addDateBtn">Add</button>
+          </div>
+          <div class="dates-list" id="datesList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Sessions</h2></div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+          Configure the time slots during a show day. Cut-off time is when ordering closes for that session.
+        </p>
+
+        <div class="session-card" id="sessionBefore">
+          <h3><span class="session-tag before">Before</span> Before Show</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Session Name</label>
+              <input type="text" id="beforeName" class="form-control" value="Before Show">
+            </div>
+            <div class="form-group">
+              <label>Enabled</label>
+              <select id="beforeEnabled" class="form-control">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Order Cut-off Time</label>
+              <input type="time" id="beforeCutOff" class="form-control" value="18:30">
+            </div>
+            <div class="form-group">
+              <label>Cut-off applies on</label>
+              <select id="beforeCutOffDay" class="form-control">
+                <option value="same">Same day as show</option>
+                <option value="prev">Day before show</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="session-card" id="sessionInterval">
+          <h3><span class="session-tag interval">Interval</span> Interval</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Session Name</label>
+              <input type="text" id="intervalName" class="form-control" value="Interval">
+            </div>
+            <div class="form-group">
+              <label>Enabled</label>
+              <select id="intervalEnabled" class="form-control">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Order Cut-off Time</label>
+              <input type="time" id="intervalCutOff" class="form-control" value="19:00">
+            </div>
+            <div class="form-group">
+              <label>Cut-off applies on</label>
+              <select id="intervalCutOffDay" class="form-control">
+                <option value="same">Same day as show</option>
+                <option value="prev">Day before show</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="session-card" id="sessionAfter">
+          <h3><span class="session-tag after">After</span> After Show</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Session Name</label>
+              <input type="text" id="afterName" class="form-control" value="After Show">
+            </div>
+            <div class="form-group">
+              <label>Enabled</label>
+              <select id="afterEnabled" class="form-control">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Order Cut-off Time</label>
+              <input type="time" id="afterCutOff" class="form-control" value="21:30">
+            </div>
+            <div class="form-group">
+              <label>Cut-off applies on</label>
+              <select id="afterCutOffDay" class="form-control">
+                <option value="same">Same day as show</option>
+                <option value="prev">Day before show</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MENU ITEMS ── -->
+  <div id="tab-menu" class="tab-panel">
+    <div class="section-header">
+      <h2>Menu Items</h2>
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><h2>Add Item</h2></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group" style="flex:2">
+            <label for="menuItemName">Item Name</label>
+            <input type="text" id="menuItemName" class="form-control" placeholder="e.g. Red Wine">
+          </div>
+          <div class="form-group">
+            <label for="menuItemPrice">Price (£)</label>
+            <input type="number" id="menuItemPrice" class="form-control" placeholder="0.00" min="0" step="0.50">
+          </div>
+        </div>
+        <button class="btn btn-primary" id="addMenuItemBtn">Add Item</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h2>Current Menu</h2></div>
+      <div class="card-body">
+        <div class="item-list" id="menuItemsList">
+          <p style="color:var(--text-muted);font-size:14px">No items yet. Add one above.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LOCATIONS ── -->
+  <div id="tab-locations" class="tab-panel">
+    <div class="section-header">
+      <h2>Collection Locations</h2>
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><h2>Add Location</h2></div>
+      <div class="card-body">
+        <div style="display:flex;gap:8px">
+          <input type="text" id="locationName" class="form-control" placeholder="e.g. Bar, Foyer, Stage Left">
+          <button class="btn btn-primary" id="addLocationBtn">Add</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h2>Locations</h2></div>
+      <div class="card-body">
+        <div class="item-list" id="locationsList">
+          <p style="color:var(--text-muted);font-size:14px">No locations yet.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ORDERS ── -->
+  <div id="tab-orders" class="tab-panel">
+    <div class="section-header">
+      <h2>Orders</h2>
+      <button class="btn btn-secondary btn-sm" id="refreshOrdersBtn">⟳ Refresh</button>
+    </div>
+
+    <div class="orders-toolbar">
+      <div class="form-group" style="margin:0;flex:1;min-width:160px">
+        <label for="filterDate">Date</label>
+        <select id="filterDate" class="form-control">
+          <option value="">All dates</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1;min-width:160px">
+        <label for="filterSession">Session</label>
+        <select id="filterSession" class="form-control">
+          <option value="">All sessions</option>
+          <option value="before">Before Show</option>
+          <option value="interval">Interval</option>
+          <option value="after">After Show</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;flex:1;min-width:160px">
+        <label for="filterStatus">Status</label>
+        <select id="filterStatus" class="form-control">
+          <option value="">All</option>
+          <option value="pending">Pending</option>
+          <option value="ready">Ready</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="summary-grid" id="ordersSummary"></div>
+
+    <div id="ordersContainer">
+      <p style="color:var(--text-muted);font-size:14px">Select a date to see orders.</p>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS & QR ── -->
+  <div id="tab-settings" class="tab-panel">
+    <div class="section-header">
+      <h2>Settings &amp; QR Code</h2>
+      <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><h2>Site URL</h2></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="siteUrl">Base URL (where this site is hosted)</label>
+          <input type="url" id="siteUrl" class="form-control" placeholder="https://antonjung.github.io/showdrinks">
+        </div>
+        <p style="font-size:13px;color:var(--text-muted)">Used to generate the QR code customers scan to open the ordering PWA.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><h2>SumUp Payment Settings</h2></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="sumupMerchantCode">Merchant Code</label>
+          <input type="text" id="sumupMerchantCode" class="form-control" placeholder="Your SumUp merchant code">
+        </div>
+        <div class="form-group">
+          <label for="sumupApiKey">API Key (keep secret)</label>
+          <input type="password" id="sumupApiKey" class="form-control" placeholder="Your SumUp API key">
+        </div>
+        <div class="form-group">
+          <label for="paymentMode">Payment Mode</label>
+          <select id="paymentMode" class="form-control">
+            <option value="bar">Pay at Bar (no online payment)</option>
+            <option value="sumup">SumUp Online Checkout</option>
+          </select>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted)">
+          SumUp online checkout requires a server-side function (Firebase Cloud Function) to create checkouts securely.
+          See README for setup instructions.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Customer QR Code</h2></div>
+      <div class="card-body" style="text-align:center">
+        <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px">
+          Customers scan this to open the drink ordering page.
+        </p>
+        <div id="qrcode" style="display:inline-block;margin:0 auto 16px"></div>
+        <div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px" id="qrUrl"></p>
+          <button class="btn btn-primary" id="generateQrBtn">Generate QR Code</button>
+          <button class="btn btn-secondary" id="downloadQrBtn" style="margin-left:8px;display:none">Download PNG</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Edit modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:400px;margin:20px">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h2 id="editModalTitle">Edit Item</h2>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label for="editName">Name</label>
+        <input type="text" id="editName" class="form-control">
+      </div>
+      <div class="form-group" id="editPriceGroup">
+        <label for="editPrice">Price (£)</label>
+        <input type="number" id="editPrice" class="form-control" min="0" step="0.50">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" id="editSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="version.js"></script>
+<script src="firebase-config.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Show config, sessions, settings — readable by everyone, writable by admin
+    // (Add Firebase Auth to lock write access in production)
+    match /config/{doc} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Menu items — readable by all customers, writable by admin
+    match /menuItems/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Collection locations — readable by all, writable by admin
+    match /locations/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Orders — customers can create and read; admin can update (mark ready, set location)
+    match /orders/{id} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if false;
+    }
+  }
+}
