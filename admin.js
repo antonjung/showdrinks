@@ -210,9 +210,9 @@ function newItemRow(defaultCat) {
   return `<tr id="newItemRow" class="new-item-row">
     <td>${categorySelectHtml(defaultCat, 'handleNewCatChange(this)')}</td>
     <td><input class="grid-input" id="newItemName" placeholder="New item name…"
-               onblur="autoCreateItem()"></td>
+               onblur="autoCreateItem(event)"></td>
     <td><input class="grid-input price-input" type="number" id="newItemPrice"
-               placeholder="0.00" min="0" step="0.50" onblur="autoCreateItem()"></td>
+               placeholder="0.00" min="0" step="0.50" onblur="autoCreateItem(event)"></td>
     <td></td>
   </tr>`;
 }
@@ -248,7 +248,8 @@ window.handleNewCatChange = function(selectEl) {
   if (selectEl.value === '__new__') promptNewCategory(selectEl, null);
 };
 
-window.autoCreateItem = async function() {
+window.autoCreateItem = async function(e) {
+  if (e && e.relatedTarget && e.relatedTarget.closest('#newItemRow')) return;
   const nameEl  = document.getElementById('newItemName');
   const priceEl = document.getElementById('newItemPrice');
   const catSel  = document.querySelector('#newItemRow select');
