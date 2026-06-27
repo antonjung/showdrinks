@@ -462,23 +462,24 @@ function renderPosGrid() {
   const el = document.getElementById('posGrid');
   if (!el) return;
   if (!grid) {
-    el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;padding:12px;grid-column:1/-1">POS layout not set up yet — configure it in Admin → POS Layout.</p>';
+    el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;padding:12px">POS layout not set up yet — configure it in Admin → POS Layout.</p>';
     return;
   }
-  const cells = (grid.cells || []).slice(0, 12);
-  while (cells.length < 12) cells.push({ type: 'empty' });
-  el.innerHTML = cells.map((cell, i) => {
+  const all = (grid.cells || []).slice(0, 18);
+  while (all.length < 18) all.push({ type: 'empty' });
+  function cellBtn(cell, i) {
     if (!cell || cell.type === 'empty') return `<button class="pos-btn empty" disabled></button>`;
     const style = cell.color
       ? `background:${cell.color};color:${posIsLight(cell.color)?'#1e293b':'#fff'};border-color:${cell.color};` : '';
-    const icon = cell.type === 'grid' ? '▶' : cell.type === 'back' ? '◀' : '';
     const price = cell.type === 'item' && cell.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
     return `<button class="pos-btn" style="${style}" onclick="handlePosBtn(${i})">
-      ${icon ? `<span class="pb-icon">${icon}</span>` : ''}
       <span class="pb-lbl">${escHtml(cell.label || '')}</span>
       ${price ? `<span class="pb-price">${price}</span>` : ''}
     </button>`;
-  }).join('');
+  }
+  el.innerHTML =
+    `<div class="pos-grid">${all.slice(0,12).map((c,i) => cellBtn(c,i)).join('')}</div>` +
+    `<div class="pos-grid-extra">${all.slice(12).map((c,i) => cellBtn(c,12+i)).join('')}</div>`;
 }
 
 window.handlePosBtn = function(idx) {

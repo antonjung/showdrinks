@@ -655,7 +655,7 @@ document.getElementById('downloadQrBtn').addEventListener('click', () => {
 // ── POS Layout ─────────────────────────────────────────────────────────────
 
 const POS_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899','#6b7280','#0f172a'];
-const POS_N = 12;
+const POS_N = 18;
 
 let _posGrids    = {};
 let _posGridOrder = [];
@@ -758,7 +758,10 @@ function posRenderEditor() {
       ${_posActiveId==='root'?'<span style="font-size:12px;color:var(--text-muted)">(root — entry point for customers)</span>':''}
     </div>
     <div class="pos-admin-grid">
-      ${cells.map((cell,i) => posRenderAdminCell(cell,i)).join('')}
+      ${cells.slice(0,12).map((cell,i) => posRenderAdminCell(cell,i)).join('')}
+    </div>
+    <div class="pos-admin-grid pos-admin-extra">
+      ${cells.slice(12).map((cell,i) => posRenderAdminCell(cell,12+i)).join('')}
     </div>`;
 }
 
@@ -982,18 +985,19 @@ function posRenderTestGrid() {
   if (!el) return;
   if (!grid) { el.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Grid not found.</p>'; return; }
   const cells = posNormCells(grid.cells);
-  el.innerHTML = cells.map((cell, i) => {
+  function cellBtn(cell, i) {
     if (!cell || cell.type === 'empty') return `<button class="pos-btn empty" disabled></button>`;
     const style = cell.color
       ? `background:${cell.color};color:${posIsLight(cell.color)?'#1e293b':'#fff'};border-color:${cell.color};` : '';
-    const icon = {grid:'▶', back:'◀', finish:'✓', clear:'✕', plus:'＋', minus:'－', item:''}[cell.type] || '';
     const price = cell.type === 'item' && cell.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
     return `<button class="pos-btn" style="${style}" onclick="handlePosTestBtn(${i})">
-      ${icon ? `<span class="pb-icon">${icon}</span>` : ''}
       <span class="pb-lbl">${escHtml(cell.label || '')}</span>
       ${price ? `<span class="pb-price">${price}</span>` : ''}
     </button>`;
-  }).join('');
+  }
+  el.innerHTML =
+    `<div class="pos-grid">${cells.slice(0,12).map((c,i) => cellBtn(c,i)).join('')}</div>` +
+    `<div class="pos-grid-extra">${cells.slice(12).map((c,i) => cellBtn(c,12+i)).join('')}</div>`;
 }
 
 function posRenderTestBasket() {
