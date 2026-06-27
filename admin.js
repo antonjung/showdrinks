@@ -758,10 +758,12 @@ function posRenderAdminCell(cell, idx) {
   const label = cell?.label || '';
   const price = cell?.type==='item' && cell?.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
   return `<div class="pos-admin-cell ${isEmpty?'':'filled'}" style="${bg}"
+               ${!isEmpty?`draggable="true" ondragstart="posCellDragStart(event,${idx})"`:''}
                onclick="posOpenCell(${idx})"
                ondragover="event.preventDefault();this.classList.add('drag-over')"
                ondragleave="this.classList.remove('drag-over')"
                ondrop="posCellDrop(event,${idx})">
+    ${!isEmpty?`<button class="pos-cell-clear" onclick="event.stopPropagation();posClearCellAt(${idx})" title="Clear">×</button>`:''}
     ${!isEmpty&&icon?`<span class="pos-cell-badge">${icon}</span>`:''}
     ${isEmpty
       ? '<span style="color:var(--border);font-size:28px;line-height:1">+</span>'
@@ -777,18 +779,43 @@ window.posDragStart = function(e) {
   }));
 };
 
+window.posCellDragStart = function(e, idx) {
+  const grid = _posGrids[_posActiveId]; if (!grid) return;
+  const cell = posNormCells(grid.cells)[idx];
+  e.dataTransfer.setData('posCell', JSON.stringify({ srcIdx: idx, cell }));
+};
+
 window.posCellDrop = function(e, idx) {
   e.currentTarget.classList.remove('drag-over');
+  const grid = _posGrids[_posActiveId]; if (!grid) return;
+  const cells = posNormCells(grid.cells);
+
+  const cellRaw = e.dataTransfer.getData('posCell');
+  if (cellRaw) {
+    try {
+      const { srcIdx, cell: srcCell } = JSON.parse(cellRaw);
+      if (srcIdx === idx) return;
+      cells[idx] = { ...srcCell };
+      cells[srcIdx] = { type:'empty', label:'', color:'', menuItemId:'', menuItemPrice:0, targetGridId:'' };
+      grid.cells = cells; posRenderEditor();
+    } catch{}
+    return;
+  }
+
   try {
     const item = JSON.parse(e.dataTransfer.getData('posItem'));
     if (!item?.id) return;
-    const grid = _posGrids[_posActiveId]; if (!grid) return;
-    const cells = posNormCells(grid.cells);
     cells[idx] = { type:'item', label:item.name, color:cells[idx]?.color||'',
                    menuItemId:item.id, menuItemPrice:item.price, targetGridId:'' };
-    grid.cells = cells;
-    posRenderEditor();
+    grid.cells = cells; posRenderEditor();
   } catch{}
+};
+
+window.posClearCellAt = function(idx) {
+  const grid = _posGrids[_posActiveId]; if (!grid) return;
+  const cells = posNormCells(grid.cells);
+  cells[idx] = { type:'empty', label:'', color:'', menuItemId:'', menuItemPrice:0, targetGridId:'' };
+  grid.cells = cells; posRenderEditor();
 };
 
 window.posRenameGrid = function(name) {
