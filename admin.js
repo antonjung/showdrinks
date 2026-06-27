@@ -703,17 +703,29 @@ async function loadPosGrids() {
 }
 
 function posRenderMenuItems() {
+  const filterEl = document.getElementById('posCatFilter');
   const el = document.getElementById('posMenuItems');
   if (!el) return;
-  el.innerHTML = _allMenuItems.length
-    ? _allMenuItems.map(item =>
+
+  // Rebuild category options
+  if (filterEl) {
+    const cats = [...new Set(_allMenuItems.map(i => i.category).filter(Boolean))].sort();
+    const cur = filterEl.value;
+    filterEl.innerHTML = '<option value="">All categories</option>' +
+      cats.map(c => `<option value="${escHtml(c)}"${c===cur?' selected':''}>${escHtml(c)}</option>`).join('');
+  }
+
+  const filterVal = filterEl?.value || '';
+  const items = filterVal ? _allMenuItems.filter(i => i.category === filterVal) : _allMenuItems;
+  el.innerHTML = items.length
+    ? items.map(item =>
         `<div class="pos-drag-item" draggable="true"
               data-id="${item.id}" data-name="${escHtml(item.name)}" data-price="${item.price}"
               ondragstart="posDragStart(event)">
            <span>${escHtml(item.name)}</span>
            <span style="color:var(--text-muted);font-size:12px">${fmtCurrency(item.price)}</span>
          </div>`).join('')
-    : '<p style="font-size:12px;color:var(--text-muted)">No menu items yet.</p>';
+    : '<p style="font-size:12px;color:var(--text-muted)">No items.</p>';
 }
 
 function posRenderGridList() {
@@ -754,7 +766,7 @@ function posRenderAdminCell(cell, idx) {
   const isEmpty = !cell || cell.type==='empty';
   const bg = (!isEmpty && cell.color)
     ? `background:${cell.color};color:${posIsLight(cell.color)?'#1e293b':'#fff'};border-color:${cell.color};` : '';
-  const icon = {item:'🛒',grid:'▶',back:'◀',empty:''}[cell?.type||'empty'];
+  const icon = {item:'🛒',grid:'▶',back:'◀',finish:'✓',empty:''}[cell?.type||'empty'];
   const label = cell?.label || '';
   const price = cell?.type==='item' && cell?.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
   return `<div class="pos-admin-cell ${isEmpty?'':'filled'}" style="${bg}"

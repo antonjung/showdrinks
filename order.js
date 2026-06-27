@@ -99,19 +99,14 @@ function updateBottomBar() {
     next.style.display = 'none';
     return;
   }
+  if (state.step === 2 && !state.editingOrderId) { bar.style.display = 'none'; return; }
   next.style.display = '';
   bar.style.display = 'flex';
   if (state.step === 2) {
-    if (state.editingOrderId) {
-      back.textContent = '← Cancel';
-      const isEditable = state.editingOrderStatus === 'pending';
-      next.textContent = isEditable ? 'Save Changes' : 'View Status →';
-      next.disabled = false;
-    } else {
-      back.textContent = '← Back';
-      next.textContent = 'Review →';
-      next.disabled = basketCount() === 0;
-    }
+    back.textContent = '← Cancel';
+    const isEditable = state.editingOrderStatus === 'pending';
+    next.textContent = isEditable ? 'Save Changes' : 'View Status →';
+    next.disabled = false;
   } else {
     back.textContent = '← Back';
     next.textContent = 'Next →';
@@ -505,7 +500,14 @@ window.handlePosBtn = function(idx) {
       renderPosGrid();
     }
   } else if (cell.type === 'back') {
-    if (state.posGridStack.length > 1) { state.posGridStack.pop(); renderPosGrid(); }
+    if (state.posGridStack.length > 1) {
+      state.posGridStack.pop(); renderPosGrid();
+    } else {
+      goTo(1); renderDateSession();
+    }
+  } else if (cell.type === 'finish') {
+    if (basketCount() === 0) { toast('Add at least one item', 'error'); return; }
+    goTo(3); renderReview();
   }
 };
 

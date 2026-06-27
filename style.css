@@ -217,7 +217,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .pos-drag-item { padding:6px 8px; border:1px solid var(--border); border-radius:6px; margin-bottom:5px; cursor:grab; font-size:13px; background:var(--bg); display:flex; justify-content:space-between; align-items:center; user-select:none; }
 .pos-drag-item:active { cursor:grabbing; opacity:.7; }
 .pos-admin-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; max-width:420px; margin-top:16px; }
-.pos-admin-cell { min-height:84px; border-radius:10px; border:2px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; font-size:13px; text-align:center; padding:8px; position:relative; transition:border-color .15s, background .15s; background:var(--bg); gap:3px; }
+.pos-admin-cell { min-height:62px; border-radius:10px; border:2px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; font-size:13px; text-align:center; padding:8px; position:relative; transition:border-color .15s, background .15s; background:var(--bg); gap:3px; }
 .pos-admin-cell.filled { border-style:solid; }
 .pos-admin-cell:hover { border-color:var(--primary); }
 .pos-admin-cell.drag-over { border-color:var(--primary); background:var(--primary-light); }
@@ -229,7 +229,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .pos-cell-prc { font-size:11px; opacity:.7; }
 /* ── POS Customer Grid ── */
 .pos-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:4px 0 8px; }
-.pos-btn { min-height:80px; border-radius:12px; border:1.5px solid var(--border); background:var(--surface); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; font-size:13px; font-weight:600; text-align:center; padding:8px 6px; transition:transform .1s; width:100%; }
+.pos-btn { min-height:60px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; font-size:13px; font-weight:600; text-align:center; padding:8px 6px; transition:transform .1s; width:100%; }
 .pos-btn:active { transform:scale(.95); }
 .pos-btn.empty { opacity:0; pointer-events:none; }
 .pos-btn .pb-icon { font-size:20px; line-height:1; }

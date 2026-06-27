@@ -265,7 +265,10 @@
         </div>
         <div class="pos-items-panel">
           <strong style="font-size:13px">Menu Items</strong>
-          <p style="font-size:11px;color:var(--text-muted);margin:4px 0 8px">Drag onto a cell</p>
+          <p style="font-size:11px;color:var(--text-muted);margin:4px 0 6px">Drag onto a cell</p>
+          <select id="posCatFilter" class="form-control" style="font-size:12px;padding:4px 8px;margin-bottom:6px" onchange="posRenderMenuItems()">
+            <option value="">All categories</option>
+          </select>
           <div id="posMenuItems"></div>
         </div>
       </div>
@@ -375,6 +378,7 @@
           <option value="item">Menu Item</option>
           <option value="grid">Go to Grid</option>
           <option value="back">Back</option>
+          <option value="finish">Finish / Review</option>
         </select>
       </div>
       <div class="form-group" id="posCellLabelRow">

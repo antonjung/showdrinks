@@ -119,12 +119,12 @@
     .ic-qty button:active { background:var(--primary); color:#fff; }
     .ic-qty .qn { font-weight:800; font-size:15px; flex:1; text-align:center; }
 
-    /* Order grid pane (top 40% of screen 2) */
-    .order-grid-pane { height:40vh; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); margin-bottom:10px; display:flex; flex-direction:column; }
+    /* Order grid pane (top of screen 2) */
+    .order-grid-pane { max-height:165px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); margin-bottom:8px; display:flex; flex-direction:column; }
     .og-header { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--primary); color:#fff; font-size:13px; font-weight:700; position:sticky; top:0; z-index:1; flex-shrink:0; }
     .og-edit-info { font-size:11px; opacity:.8; }
     .og-rows { flex:1; overflow-y:auto; }
-    .og-row { display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:8px; padding:7px 12px; border-top:1px solid var(--border); font-size:13px; }
+    .og-row { display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:8px; padding:4px 12px; border-top:1px solid var(--border); font-size:13px; }
     .og-qty { font-weight:700; color:var(--primary); }
     .og-price { font-weight:600; text-align:right; }
     .og-trash { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:15px; padding:2px 4px; transition:color .15s; line-height:1; }
