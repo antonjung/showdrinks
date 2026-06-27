@@ -514,6 +514,7 @@ window.handlePosBtn = function(idx) {
     renderOrderGrid();
     updateBottomBar();
   } else if (cell.type === 'clear') {
+    if (!confirm('Clear all items?')) return;
     state.basket = {}; state.selectedBasketKey = null;
     renderOrderGrid(); updateBottomBar();
   } else if (cell.type === 'plus') {
