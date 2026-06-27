@@ -106,7 +106,7 @@
     /* Screen 2 POS mode — hide chrome, fill viewport */
     .pos-screen .pwa-hero,
     .pos-screen .step-bar { display:none; }
-    .pos-screen .pwa-content { padding:10px 12px 12px; display:flex; flex-direction:column; height:calc(100vh - env(safe-area-inset-top)); box-sizing:border-box; overflow:hidden; }
+    .pos-screen .pwa-content { padding:10px 12px 12px; display:flex; flex-direction:column; height:calc(100vh - env(safe-area-inset-top)); height:calc(100dvh - env(safe-area-inset-top)); box-sizing:border-box; overflow:hidden; }
     .pos-screen #screen2 { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
     .pos-screen .order-grid-pane { flex:0 0 40%; height:auto; max-height:none; overflow-y:auto; }
     .pos-screen #posGrid { flex:0 0 60%; overflow-y:auto; min-height:0; }
@@ -140,7 +140,7 @@
     .og-price { font-weight:600; text-align:right; }
     .og-trash { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:15px; padding:2px 4px; transition:color .15s; line-height:1; }
     .og-trash:hover { color:var(--danger); }
-    .og-total { display:flex; justify-content:space-between; padding:8px 12px; border-top:2px solid var(--border); font-size:14px; font-weight:800; background:var(--bg); position:sticky; bottom:0; flex-shrink:0; }
+    .og-total { display:flex; justify-content:space-between; padding:8px 12px; border-top:2px solid var(--border); font-size:28px; font-weight:800; background:var(--bg); position:sticky; bottom:0; flex-shrink:0; }
     .og-empty { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:13px; padding:16px; text-align:center; }
 
     /* Item catalog buttons (bottom half of screen 2) */
@@ -149,6 +149,8 @@
     .item-btn:active { background:var(--primary-light); border-color:var(--primary); }
     .ib-name { font-size:12px; font-weight:600; line-height:1.2; }
     .ib-price { font-size:12px; font-weight:700; color:var(--primary); }
+
+    .review-status-row { background:var(--primary-light); color:var(--primary); border-radius:10px; padding:10px 14px; font-weight:700; font-size:14px; }
 
     /* Screen 1 tighter headings */
     .screen-h { font-size:16px; font-weight:700; margin-bottom:8px; margin-top:16px; }
@@ -210,8 +212,8 @@
 
     <!-- Screen 3: Review & Pay -->
     <div class="screen" id="screen3">
-      <div class="pwa-section-title">Review Order</div>
-      <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px">Check your order before paying.</p>
+      <div class="pwa-section-title">Order Summary</div>
+      <div id="reviewStatus" style="display:none;margin-bottom:12px"></div>
 
       <div class="info-card">
         <div class="info-row"><span class="info-label">Name</span><span class="info-value" id="reviewName"></span></div>
