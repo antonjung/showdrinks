@@ -605,17 +605,25 @@ async function placeOrder(paymentMode) {
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
   };
 
-  try {
+  const doPlace = async () => {
     const counterRef = db.collection('counters').doc('global');
     const orderRef   = db.collection('orders').doc();
     let orderNumber;
-
     await db.runTransaction(async t => {
       const cDoc = await t.get(counterRef);
       orderNumber = (cDoc.exists ? (cDoc.data().next || 0) : 0) + 1;
       t.set(counterRef, { next: orderNumber }, { merge: true });
       t.set(orderRef, { ...order, orderNumber });
     });
+    return { orderRef, orderNumber };
+  };
+
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Request timed out – please try again')), 15000)
+  );
+
+  try {
+    const { orderRef, orderNumber } = await Promise.race([doPlace(), timeout]);
 
     state.orderId              = orderRef.id;
     state.currentStatusOrderId = orderRef.id;
