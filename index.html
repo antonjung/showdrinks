@@ -107,9 +107,9 @@
     .pos-screen .pwa-hero,
     .pos-screen .step-bar { display:none; }
     .pos-screen .pwa-content { padding:10px 12px 12px; display:flex; flex-direction:column; height:calc(100vh - env(safe-area-inset-top)); box-sizing:border-box; overflow:hidden; }
-    .pos-screen #screen2 { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-    .pos-screen .order-grid-pane { height:auto; max-height:120px; flex-shrink:0; }
-    .pos-screen #posGrid { flex:1; overflow-y:auto; padding-bottom:8px; }
+    .pos-screen #screen2 { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
+    .pos-screen .order-grid-pane { flex:0 0 40%; height:auto; max-height:none; overflow-y:auto; }
+    .pos-screen #posGrid { flex:0 0 60%; overflow-y:auto; min-height:0; }
 
     /* Category bar */
     .cat-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
