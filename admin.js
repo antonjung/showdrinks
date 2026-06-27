@@ -264,6 +264,7 @@ window.autoCreateItem = async function(e) {
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     await loadMenuItems();
+    document.getElementById('newItemName')?.focus();
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
   }
