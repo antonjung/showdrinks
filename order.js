@@ -97,8 +97,15 @@ function updateBottomBar() {
   if (state.step === 0 || state.step === 4) { bar.style.display = 'none'; return; }
   if (state.step === 3) {
     bar.style.display = 'flex';
-    back.textContent = '← Amend';
-    next.style.display = 'none';
+    if (state.editingOrderId) {
+      back.textContent = '← Close';
+      next.style.display = '';
+      next.textContent = 'Order Status →';
+      next.disabled = false;
+    } else {
+      back.textContent = '← Amend';
+      next.style.display = 'none';
+    }
     return;
   }
   if (state.step === 2 && !state.editingOrderId) { bar.style.display = 'none'; return; }
@@ -120,7 +127,11 @@ document.getElementById('backBtn').addEventListener('click', () => {
   if (state.step === 2 && state.posGridStack.length > 1) {
     state.posGridStack.pop(); renderPosGrid(); return;
   }
-  if (state.step === 2 && state.editingOrderId) {
+  if (state.step === 3 && state.editingOrderId) {
+    state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
+    state.basket = {};
+    goTo(0); renderHomeScreen();
+  } else if (state.step === 2 && state.editingOrderId) {
     state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
     state.basket = {};
     goTo(0); renderHomeScreen();
@@ -132,6 +143,9 @@ document.getElementById('backBtn').addEventListener('click', () => {
 });
 
 document.getElementById('nextBtn').addEventListener('click', async () => {
+  if (state.step === 3 && state.editingOrderId) {
+    goTo(4); subscribeToOrderStatus(state.editingOrderId); return;
+  }
   if (state.step === 1) {
     if (!state.showDate)  { toast('Please select a date',    'error'); return; }
     if (!state.sessionId) { toast('Please select a session', 'error'); return; }
@@ -343,7 +357,7 @@ window.viewOrder = async function(orderId) {
       state.basket[item.name] = { name: item.name, price: item.price, quantity: item.quantity };
     });
     state.selectedCategory = null;
-    goTo(2); renderMenu();
+    goTo(3); renderReview();
   } catch(e) { toast('Error: ' + e.message, 'error'); }
 };
 
@@ -540,13 +554,7 @@ function renderOrderGrid() {
     return;
   }
 
-  const count = basketCount();
-  pane.innerHTML =
-    `<div class="og-header">
-       <span>${count} item${count !== 1 ? 's' : ''}</span>
-       <span>${fmtCurrency(basketTotal())}</span>
-     </div>
-     <div class="og-rows">` +
+  pane.innerHTML = `<div class="og-rows">` +
     entries.map(([key, i]) => {
       const enc = encodeURIComponent(key);
       const sel = key === state.selectedBasketKey;
@@ -647,9 +655,23 @@ function renderReview() {
       <span class="osp">${fmtCurrency(i.price * i.quantity)}</span>
     </div>`).join('');
   document.getElementById('reviewTotal').textContent = fmtCurrency(basketTotal());
-  const mode = state.settings?.paymentMode || 'bar';
-  document.getElementById('payAtBarSection').style.display  = mode === 'bar'   ? '' : 'none';
-  document.getElementById('sumupSection').style.display     = mode === 'sumup' ? '' : 'none';
+  const viewing = !!state.editingOrderId;
+  document.getElementById('paymentSection').style.display = viewing ? 'none' : '';
+  const statusEl = document.getElementById('reviewStatus');
+  if (viewing) {
+    const s = state.editingOrderStatus;
+    const num = state.editingOrderNumber ? `Order #${state.editingOrderNumber} · ` : '';
+    const label = s === 'ready' ? '✅ Ready to collect' : s === 'collected' ? '🎉 Collected' : '⏳ Being prepared';
+    statusEl.innerHTML = `<div class="review-status-row">${num}${label}</div>`;
+    statusEl.style.display = '';
+  } else {
+    statusEl.style.display = 'none';
+  }
+  if (!viewing) {
+    const mode = state.settings?.paymentMode || 'bar';
+    document.getElementById('payAtBarSection').style.display  = mode === 'bar'   ? '' : 'none';
+    document.getElementById('sumupSection').style.display     = mode === 'sumup' ? '' : 'none';
+  }
 }
 
 document.getElementById('payAtBarBtn').addEventListener('click', () => placeOrder('bar'));
