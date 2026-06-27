@@ -24,6 +24,7 @@
   <button class="tab-btn" data-tab="menu">Menu Items</button>
   <button class="tab-btn" data-tab="locations">Locations</button>
   <button class="tab-btn" data-tab="orders">Orders</button>
+  <button class="tab-btn" data-tab="pos">POS Layout</button>
   <button class="tab-btn" data-tab="settings">Settings &amp; QR</button>
 </nav>
 
@@ -247,6 +248,33 @@
     </div>
   </div>
 
+  <!-- ── POS LAYOUT ── -->
+  <div id="tab-pos" class="tab-panel">
+    <div class="section-header">
+      <h2>POS Layout</h2>
+      <button class="btn btn-primary" id="posSaveBtn">Save Layout</button>
+    </div>
+    <div class="pos-editor">
+      <div class="pos-sidebar">
+        <div class="pos-grids-panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <strong style="font-size:13px">Grids</strong>
+            <button class="btn btn-primary btn-sm" id="posAddGridBtn">+ Add</button>
+          </div>
+          <div id="posGridList"></div>
+        </div>
+        <div class="pos-items-panel">
+          <strong style="font-size:13px">Menu Items</strong>
+          <p style="font-size:11px;color:var(--text-muted);margin:4px 0 8px">Drag onto a cell</p>
+          <div id="posMenuItems"></div>
+        </div>
+      </div>
+      <div class="pos-main-panel">
+        <div id="posEditor"><p style="color:var(--text-muted)">Select a grid to edit</p></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── SETTINGS & QR ── -->
   <div id="tab-settings" class="tab-panel">
     <div class="section-header">
@@ -327,6 +355,50 @@
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
         <button class="btn btn-primary" id="editSaveBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- POS Cell Editor Modal -->
+<div id="posCellModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:380px;margin:20px">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h2>Edit Cell</h2>
+      <button onclick="posCloseCellModal()" style="background:none;border:none;font-size:20px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div class="card-body">
+      <div class="form-group">
+        <label>Type</label>
+        <select id="posCellType" class="form-control" onchange="posUpdateCellForm()">
+          <option value="empty">Empty</option>
+          <option value="item">Menu Item</option>
+          <option value="grid">Go to Grid</option>
+          <option value="back">Back</option>
+        </select>
+      </div>
+      <div class="form-group" id="posCellLabelRow">
+        <label>Label</label>
+        <input type="text" id="posCellLabel" class="form-control" placeholder="Button label">
+      </div>
+      <div class="form-group" id="posCellItemRow" style="display:none">
+        <label>Menu Item</label>
+        <select id="posCellItemSel" class="form-control" onchange="posCellItemChange()"></select>
+      </div>
+      <div class="form-group" id="posCellGridRow" style="display:none">
+        <label>Target Grid</label>
+        <select id="posCellGridSel" class="form-control"></select>
+      </div>
+      <div class="form-group">
+        <label>Colour</label>
+        <div id="posCellColors" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn-danger btn-sm" onclick="posClearCell()">Clear Cell</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="posCloseCellModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="posSaveCellEdit()">Save</button>
+        </div>
       </div>
     </div>
   </div>

@@ -21,6 +21,12 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // POS grid layouts — readable by customers, writable by admin
+    match /posGrids/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Per-date order counters — readable/writable for sequential order numbers
     match /counters/{id} {
       allow read, write: if true;

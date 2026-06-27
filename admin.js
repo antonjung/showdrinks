@@ -37,6 +37,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'orders') loadOrders();
+    if (btn.dataset.tab === 'pos') loadPosGrids();
   });
 });
 
@@ -649,6 +650,270 @@ document.getElementById('downloadQrBtn').addEventListener('click', () => {
   link.download = 'showdrinks-qr.png';
   link.href = canvas.toDataURL('image/png');
   link.click();
+});
+
+// ── POS Layout ─────────────────────────────────────────────────────────────
+
+const POS_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899','#6b7280','#0f172a'];
+const POS_N = 12;
+
+let _posGrids    = {};
+let _posGridOrder = [];
+let _posActiveId  = null;
+let _posEditIdx   = null;
+let _posCellColor = '';
+
+function posEmptyGrid(name) {
+  return { name, cells: Array(POS_N).fill(null).map(() =>
+    ({ type:'empty', label:'', color:'', menuItemId:'', menuItemPrice:0, targetGridId:'' })) };
+}
+
+function posNormCells(cells) {
+  const out = (cells || []).slice(0, POS_N);
+  while (out.length < POS_N)
+    out.push({ type:'empty', label:'', color:'', menuItemId:'', menuItemPrice:0, targetGridId:'' });
+  return out;
+}
+
+function posIsLight(hex) {
+  if (!hex || hex.length < 4) return true;
+  const h = hex.length === 4
+    ? '#'+hex[1]+hex[1]+hex[2]+hex[2]+hex[3]+hex[3] : hex;
+  const r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16);
+  return (r*299+g*587+b*114)/1000 > 128;
+}
+
+async function loadPosGrids() {
+  try {
+    const snap = await db.collection('posGrids').get();
+    _posGrids = {};
+    _posGridOrder = [];
+    snap.docs.forEach(d => { _posGrids[d.id] = { id:d.id, ...d.data() }; _posGridOrder.push(d.id); });
+    if (!_posGrids['root']) {
+      const g = posEmptyGrid('Main Menu');
+      await db.collection('posGrids').doc('root').set(g);
+      _posGrids['root'] = { id:'root', ...g };
+      _posGridOrder.unshift('root');
+    }
+    _posGridOrder = ['root', ..._posGridOrder.filter(id => id !== 'root')];
+    posRenderMenuItems();
+    posRenderGridList();
+    posSelectGrid(_posActiveId && _posGrids[_posActiveId] ? _posActiveId : 'root');
+  } catch(e) { toast('POS load failed: '+e.message,'error'); }
+}
+
+function posRenderMenuItems() {
+  const el = document.getElementById('posMenuItems');
+  if (!el) return;
+  el.innerHTML = _allMenuItems.length
+    ? _allMenuItems.map(item =>
+        `<div class="pos-drag-item" draggable="true"
+              data-id="${item.id}" data-name="${escHtml(item.name)}" data-price="${item.price}"
+              ondragstart="posDragStart(event)">
+           <span>${escHtml(item.name)}</span>
+           <span style="color:var(--text-muted);font-size:12px">${fmtCurrency(item.price)}</span>
+         </div>`).join('')
+    : '<p style="font-size:12px;color:var(--text-muted)">No menu items yet.</p>';
+}
+
+function posRenderGridList() {
+  const el = document.getElementById('posGridList');
+  if (!el) return;
+  el.innerHTML = _posGridOrder.map(id => {
+    const g = _posGrids[id]; if (!g) return '';
+    const isActive = id === _posActiveId;
+    return `<div class="pos-grid-list-item ${isActive?'active':''}" onclick="posSelectGrid('${id}')">
+      <span>${escHtml(g.name)}${id==='root'?' <em style="font-size:10px;opacity:.6">(root)</em>':''}</span>
+      ${id!=='root'?`<button onclick="event.stopPropagation();posDeleteGrid('${id}')"
+        style="background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:0;color:${isActive?'rgba(255,255,255,.7)':'var(--text-muted)'}">×</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+window.posSelectGrid = function(id) {
+  _posActiveId = id; posRenderGridList(); posRenderEditor();
+};
+
+function posRenderEditor() {
+  const grid = _posGrids[_posActiveId];
+  const el = document.getElementById('posEditor');
+  if (!grid) { el.innerHTML = '<p style="color:var(--text-muted)">Select a grid to edit</p>'; return; }
+  const cells = posNormCells(grid.cells);
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <input class="form-control" id="posGridNameInput" value="${escHtml(grid.name)}"
+             style="max-width:200px" placeholder="Grid name" oninput="posRenameGrid(this.value)">
+      ${_posActiveId==='root'?'<span style="font-size:12px;color:var(--text-muted)">(root — entry point for customers)</span>':''}
+    </div>
+    <div class="pos-admin-grid">
+      ${cells.map((cell,i) => posRenderAdminCell(cell,i)).join('')}
+    </div>`;
+}
+
+function posRenderAdminCell(cell, idx) {
+  const isEmpty = !cell || cell.type==='empty';
+  const bg = (!isEmpty && cell.color)
+    ? `background:${cell.color};color:${posIsLight(cell.color)?'#1e293b':'#fff'};border-color:${cell.color};` : '';
+  const icon = {item:'🛒',grid:'▶',back:'◀',empty:''}[cell?.type||'empty'];
+  const label = cell?.label || '';
+  const price = cell?.type==='item' && cell?.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
+  return `<div class="pos-admin-cell ${isEmpty?'':'filled'}" style="${bg}"
+               onclick="posOpenCell(${idx})"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="posCellDrop(event,${idx})">
+    ${!isEmpty&&icon?`<span class="pos-cell-badge">${icon}</span>`:''}
+    ${isEmpty
+      ? '<span style="color:var(--border);font-size:28px;line-height:1">+</span>'
+      : `<span class="pos-cell-lbl">${escHtml(label)}</span>${price?`<span class="pos-cell-prc">${price}</span>`:''}`}
+  </div>`;
+}
+
+window.posDragStart = function(e) {
+  e.dataTransfer.setData('posItem', JSON.stringify({
+    id: e.currentTarget.dataset.id,
+    name: e.currentTarget.dataset.name,
+    price: parseFloat(e.currentTarget.dataset.price)
+  }));
+};
+
+window.posCellDrop = function(e, idx) {
+  e.currentTarget.classList.remove('drag-over');
+  try {
+    const item = JSON.parse(e.dataTransfer.getData('posItem'));
+    if (!item?.id) return;
+    const grid = _posGrids[_posActiveId]; if (!grid) return;
+    const cells = posNormCells(grid.cells);
+    cells[idx] = { type:'item', label:item.name, color:cells[idx]?.color||'',
+                   menuItemId:item.id, menuItemPrice:item.price, targetGridId:'' };
+    grid.cells = cells;
+    posRenderEditor();
+  } catch{}
+};
+
+window.posRenameGrid = function(name) {
+  if (_posActiveId && _posGrids[_posActiveId]) {
+    _posGrids[_posActiveId].name = name;
+    posRenderGridList();
+  }
+};
+
+window.posOpenCell = function(idx) {
+  const grid = _posGrids[_posActiveId]; if (!grid) return;
+  _posEditIdx = idx;
+  const cell = posNormCells(grid.cells)[idx];
+  _posCellColor = cell.color || '';
+  document.getElementById('posCellType').value = cell.type || 'empty';
+  document.getElementById('posCellLabel').value = cell.label || '';
+  document.getElementById('posCellItemSel').innerHTML =
+    '<option value="">— select —</option>' +
+    _allMenuItems.map(i => `<option value="${i.id}"${i.id===cell.menuItemId?' selected':''}>${escHtml(i.name)} ${fmtCurrency(i.price)}</option>`).join('');
+  document.getElementById('posCellGridSel').innerHTML =
+    '<option value="">— select —</option>' +
+    _posGridOrder.filter(id => id!==_posActiveId).map(id => {
+      const g=_posGrids[id];
+      return `<option value="${id}"${id===cell.targetGridId?' selected':''}>${escHtml(g?.name||id)}</option>`;
+    }).join('');
+  posRenderColorPicker();
+  posUpdateCellForm();
+  document.getElementById('posCellModal').style.display = 'flex';
+};
+
+function posRenderColorPicker() {
+  document.getElementById('posCellColors').innerHTML = POS_COLORS.map(c =>
+    `<div onclick="posPickColor('${c}')" title="${c||'None'}"
+          style="width:28px;height:28px;border-radius:6px;cursor:pointer;flex-shrink:0;
+                 background:${c||'var(--surface)'};
+                 border:2px solid ${c===_posCellColor?'var(--primary)':(c?c:'var(--border)')};
+                 display:flex;align-items:center;justify-content:center">
+       ${!c?'<span style="font-size:12px;color:var(--text-muted)">✕</span>':''}
+     </div>`).join('');
+}
+
+window.posPickColor = function(c) { _posCellColor = c; posRenderColorPicker(); };
+
+window.posUpdateCellForm = function() {
+  const type = document.getElementById('posCellType').value;
+  document.getElementById('posCellLabelRow').style.display = type==='empty' ? 'none' : '';
+  document.getElementById('posCellItemRow').style.display  = type==='item'  ? '' : 'none';
+  document.getElementById('posCellGridRow').style.display  = type==='grid'  ? '' : 'none';
+};
+
+window.posCellItemChange = function() {
+  const item = _allMenuItems.find(i => i.id===document.getElementById('posCellItemSel').value);
+  if (item) document.getElementById('posCellLabel').value = item.name;
+};
+
+window.posCloseCellModal = function() {
+  document.getElementById('posCellModal').style.display = 'none'; _posEditIdx = null;
+};
+
+window.posClearCell = function() {
+  if (_posEditIdx===null) return;
+  const grid = _posGrids[_posActiveId]; if (!grid) return;
+  const cells = posNormCells(grid.cells);
+  cells[_posEditIdx] = { type:'empty', label:'', color:'', menuItemId:'', menuItemPrice:0, targetGridId:'' };
+  grid.cells = cells;
+  posCloseCellModal(); posRenderEditor();
+};
+
+window.posSaveCellEdit = function() {
+  if (_posEditIdx===null) return;
+  const grid = _posGrids[_posActiveId]; if (!grid) return;
+  const type         = document.getElementById('posCellType').value;
+  const label        = document.getElementById('posCellLabel').value.trim();
+  const menuItemId   = document.getElementById('posCellItemSel').value;
+  const targetGridId = document.getElementById('posCellGridSel').value;
+  const menuItemPrice = type==='item' ? (_allMenuItems.find(i=>i.id===menuItemId)?.price||0) : 0;
+  const cells = posNormCells(grid.cells);
+  cells[_posEditIdx] = {
+    type, label: label||(type==='back'?'Back':''), color:_posCellColor,
+    menuItemId: type==='item'?menuItemId:'', menuItemPrice,
+    targetGridId: type==='grid'?targetGridId:''
+  };
+  grid.cells = cells;
+  posCloseCellModal(); posRenderEditor();
+};
+
+window.posDeleteGrid = async function(id) {
+  if (id==='root') return;
+  if (!confirm(`Delete grid "${_posGrids[id]?.name}"?`)) return;
+  try {
+    await db.collection('posGrids').doc(id).delete();
+    delete _posGrids[id];
+    _posGridOrder = _posGridOrder.filter(x => x!==id);
+    if (_posActiveId===id) _posActiveId='root';
+    posRenderGridList(); posRenderEditor();
+    toast('Grid deleted','info');
+  } catch(e) { toast('Failed: '+e.message,'error'); }
+};
+
+document.getElementById('posAddGridBtn').addEventListener('click', async () => {
+  const name = prompt('New grid name:');
+  if (!name?.trim()) return;
+  try {
+    const g = posEmptyGrid(name.trim());
+    const ref = await db.collection('posGrids').add(g);
+    _posGrids[ref.id] = { id:ref.id, ...g };
+    _posGridOrder.push(ref.id);
+    posSelectGrid(ref.id);
+    toast('Grid added','success');
+  } catch(e) { toast('Failed: '+e.message,'error'); }
+});
+
+document.getElementById('posSaveBtn').addEventListener('click', async () => {
+  try {
+    const batch = db.batch();
+    Object.values(_posGrids).forEach(g => {
+      batch.set(db.collection('posGrids').doc(g.id), { name:g.name, cells:g.cells||[] });
+    });
+    await batch.commit();
+    toast('POS layout saved','success');
+  } catch(e) { toast('Failed: '+e.message,'error'); }
+});
+
+document.getElementById('posCellModal').addEventListener('click', function(e) {
+  if (e.target===this) posCloseCellModal();
 });
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────

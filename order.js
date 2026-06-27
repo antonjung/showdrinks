@@ -31,6 +31,7 @@ const state = {
   currentStatusOrderId: null,
   showConfig: null, sessions: null, menuItems: [], settings: null,
   statusUnsubscribe: null,
+  posGrids: {}, posGridStack: [],
 };
 
 // ── Utilities ──────────────────────────────────────────────────────────────
@@ -119,6 +120,9 @@ function updateBottomBar() {
 }
 
 document.getElementById('backBtn').addEventListener('click', () => {
+  if (state.step === 2 && state.posGridStack.length > 1) {
+    state.posGridStack.pop(); renderPosGrid(); return;
+  }
   if (state.step === 2 && state.editingOrderId) {
     state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
     state.basket = {};
@@ -438,33 +442,72 @@ window.selectSession = function(id, name) {
 // ── Screen 2: Order / Edit ─────────────────────────────────────────────────
 
 function renderMenu() {
-  // Subtitle: date · session · (status if editing)
   const statusTag = state.editingOrderId
     ? ` · ${state.editingOrderStatus === 'ready' ? '✅ Ready' : state.editingOrderStatus === 'collected' ? '🎉 Collected' : '⏳ Pending'}`
     : '';
   const numTag = state.editingOrderNumber ? `#${state.editingOrderNumber} · ` : '';
   document.getElementById('menuSubtitle').textContent =
     `${numTag}${fmtDate(state.showDate)} · ${state.sessionName}${statusTag}`;
-
-  // Category bar
-  const cats   = [...new Set(state.menuItems.filter(i => i.category).map(i => i.category))].sort();
-  const catBar = document.getElementById('categoryBar');
-  if (cats.length) {
-    if (!state.selectedCategory) state.selectedCategory = 'all';
-    catBar.innerHTML =
-      `<button class="cat-btn ${state.selectedCategory === 'all' ? 'active' : ''}"
-               onclick="selectCategory('all')">All</button>` +
-      cats.map(c => `<button class="cat-btn ${state.selectedCategory === c ? 'active' : ''}"
-                              onclick="selectCategory('${escHtml(c)}')">${escHtml(c)}</button>`).join('');
-    catBar.style.display = '';
-  } else {
-    state.selectedCategory = 'all';
-    catBar.style.display = 'none';
-  }
-
+  state.posGridStack = ['root'];
+  renderPosGrid();
   renderOrderGrid();
-  renderMenuItems();
 }
+
+function posIsLight(hex) {
+  if (!hex || hex.length < 4) return true;
+  const h = hex.length === 4 ? '#'+hex[1]+hex[1]+hex[2]+hex[2]+hex[3]+hex[3] : hex;
+  const r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16);
+  return (r*299+g*587+b*114)/1000 > 128;
+}
+
+function renderPosGrid() {
+  const gridId = state.posGridStack[state.posGridStack.length - 1];
+  const grid = state.posGrids[gridId];
+  const el = document.getElementById('posGrid');
+  if (!el) return;
+  if (!grid) {
+    el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;padding:12px;grid-column:1/-1">POS layout not set up yet — configure it in Admin → POS Layout.</p>';
+    return;
+  }
+  const cells = (grid.cells || []).slice(0, 12);
+  while (cells.length < 12) cells.push({ type: 'empty' });
+  el.innerHTML = cells.map((cell, i) => {
+    if (!cell || cell.type === 'empty') return `<button class="pos-btn empty" disabled></button>`;
+    const style = cell.color
+      ? `background:${cell.color};color:${posIsLight(cell.color)?'#1e293b':'#fff'};border-color:${cell.color};` : '';
+    const icon = cell.type === 'grid' ? '▶' : cell.type === 'back' ? '◀' : '';
+    const price = cell.type === 'item' && cell.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
+    return `<button class="pos-btn" style="${style}" onclick="handlePosBtn(${i})">
+      ${icon ? `<span class="pb-icon">${icon}</span>` : ''}
+      <span class="pb-lbl">${escHtml(cell.label || '')}</span>
+      ${price ? `<span class="pb-price">${price}</span>` : ''}
+    </button>`;
+  }).join('');
+}
+
+window.handlePosBtn = function(idx) {
+  const gridId = state.posGridStack[state.posGridStack.length - 1];
+  const grid = state.posGrids[gridId];
+  if (!grid) return;
+  const cell = (grid.cells || [])[idx];
+  if (!cell || cell.type === 'empty') return;
+  if (cell.type === 'item') {
+    const menuItem = state.menuItems.find(i => i.id === cell.menuItemId);
+    if (!menuItem) { toast('Item not available', 'error'); return; }
+    const key = menuItem.name;
+    if (!state.basket[key]) state.basket[key] = { name: menuItem.name, price: menuItem.price, quantity: 0 };
+    state.basket[key].quantity += 1;
+    renderOrderGrid();
+    updateBottomBar();
+  } else if (cell.type === 'grid') {
+    if (cell.targetGridId && state.posGrids[cell.targetGridId]) {
+      state.posGridStack.push(cell.targetGridId);
+      renderPosGrid();
+    }
+  } else if (cell.type === 'back') {
+    if (state.posGridStack.length > 1) { state.posGridStack.pop(); renderPosGrid(); }
+  }
+};
 
 function renderOrderGrid() {
   const pane  = document.getElementById('orderGridPane');
@@ -755,17 +798,20 @@ async function init() {
   }
 
   try {
-    const [showDoc, sesDoc, menuSnap, settingsDoc] = await Promise.all([
+    const [showDoc, sesDoc, menuSnap, settingsDoc, posSnap] = await Promise.all([
       db.collection('config').doc('show').get(),
       db.collection('config').doc('sessions').get(),
       db.collection('menuItems').orderBy('name').get(),
       db.collection('config').doc('settings').get(),
+      db.collection('posGrids').get(),
     ]);
 
-    state.showConfig = showDoc.exists   ? showDoc.data()    : {};
-    state.sessions   = sesDoc.exists    ? sesDoc.data()     : {};
+    state.showConfig = showDoc.exists     ? showDoc.data()     : {};
+    state.sessions   = sesDoc.exists      ? sesDoc.data()      : {};
     state.menuItems  = menuSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     state.settings   = settingsDoc.exists ? settingsDoc.data() : {};
+    state.posGrids   = {};
+    posSnap.docs.forEach(d => { state.posGrids[d.id] = { id: d.id, ...d.data() }; });
 
     const showName = state.showConfig.name || 'ShowDrinks';
     document.getElementById('heroShowName').textContent = showName;
