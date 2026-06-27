@@ -158,32 +158,24 @@
   <div id="tab-menu" class="tab-panel">
     <div class="section-header">
       <h2>Menu Items</h2>
+      <button class="btn btn-danger btn-sm" id="clearAllMenuBtn" style="display:none">Clear All</button>
     </div>
-    <div class="card" style="margin-bottom:20px">
-      <div class="card-header"><h2>Add Items</h2></div>
-      <div class="card-body">
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">
-          One item per line — <strong>Name, Price</strong>
-        </p>
-        <textarea id="menuItemsBulk" class="form-control" rows="7"
-                  style="font-family:monospace;font-size:14px;resize:vertical"
-                  placeholder="Red Wine, 5.50&#10;White Wine, 5.50&#10;Beer, 4.00&#10;Soft Drink, 2.50&#10;Prosecco, 6.00"></textarea>
-        <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
-          <button class="btn btn-primary" id="bulkAddMenuBtn">Add Items</button>
-          <button class="btn btn-secondary" id="clearBulkBtn">Clear</button>
-          <span id="bulkStatus" style="font-size:13px;color:var(--text-muted)"></span>
-        </div>
-      </div>
-    </div>
+    <div id="menuCategoryBar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
     <div class="card">
-      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
-        <h2>Current Menu</h2>
-        <button class="btn btn-danger btn-sm" id="clearAllMenuBtn" style="display:none">Clear All</button>
-      </div>
-      <div class="card-body">
-        <div class="item-list" id="menuItemsList">
-          <p style="color:var(--text-muted);font-size:14px">No items yet. Add some above.</p>
-        </div>
+      <div class="card-body" style="padding:0;overflow-x:auto">
+        <table class="menu-grid-table">
+          <thead>
+            <tr>
+              <th style="width:180px">Category</th>
+              <th>Name</th>
+              <th style="width:110px">Price (£)</th>
+              <th style="width:44px"></th>
+            </tr>
+          </thead>
+          <tbody id="menuTableBody">
+            <tr><td colspan="4" style="color:var(--text-muted);padding:20px;text-align:center">Loading…</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -238,9 +230,11 @@
       <div class="form-group" style="margin:0;flex:1;min-width:160px">
         <label for="filterStatus">Status</label>
         <select id="filterStatus" class="form-control">
-          <option value="">All</option>
+          <option value="">Active (not collected)</option>
           <option value="pending">Pending</option>
           <option value="ready">Ready</option>
+          <option value="collected">Collected</option>
+          <option value="all">All orders</option>
         </select>
       </div>
     </div>

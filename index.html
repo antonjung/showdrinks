@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -95,8 +95,61 @@
     .orders-section-label.pending-label { color:var(--warning); }
     .orders-section-label.ready-label   { color:var(--success); }
 
-    .past-toggle { background:none; border:none; font-size:13px; color:var(--primary); font-weight:600; cursor:pointer; padding:4px 0; margin-bottom:10px; }
-    .past-toggle:hover { text-decoration:underline; }
+    /* Compact hero on sub-screens */
+    .sub-screen .pwa-hero { padding:8px 20px 4px; display:flex; align-items:center; gap:10px; text-align:left; }
+    .sub-screen .pwa-hero svg { display:none; }
+    .sub-screen .pwa-hero h1 { font-size:14px; font-weight:700; margin:0; }
+    .sub-screen .pwa-hero p { display:none; }
+    .sub-screen .step-bar { padding:6px 0 4px; }
+    .sub-screen .pwa-content { padding-top:16px; }
+
+    /* Category bar */
+    .cat-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+    .cat-btn { padding:5px 12px; border:2px solid var(--border); border-radius:999px; background:var(--surface); font-size:12px; font-weight:600; cursor:pointer; transition:all .15s; }
+    .cat-btn.active { border-color:var(--primary); background:var(--primary); color:#fff; }
+
+    /* 2-column item grid */
+    .items-2col { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+    .item-card { background:var(--surface); border:2px solid var(--border); border-radius:var(--radius); padding:10px 10px 8px; display:flex; flex-direction:column; gap:4px; transition:border-color .15s; cursor:default; }
+    .item-card.has-qty { border-color:var(--primary); }
+    .ic-name { font-weight:600; font-size:13px; line-height:1.25; }
+    .ic-price { font-size:13px; font-weight:700; color:var(--primary); }
+    .ic-qty { display:flex; align-items:center; gap:0; margin-top:6px; }
+    .ic-qty button { width:28px; height:28px; border-radius:50%; border:2px solid var(--primary); background:none; color:var(--primary); font-size:18px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .ic-qty button:active { background:var(--primary); color:#fff; }
+    .ic-qty .qn { font-weight:800; font-size:15px; flex:1; text-align:center; }
+
+    /* Order grid pane (top 40% of screen 2) */
+    .order-grid-pane { height:40vh; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow); margin-bottom:10px; display:flex; flex-direction:column; }
+    .og-header { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--primary); color:#fff; font-size:13px; font-weight:700; position:sticky; top:0; z-index:1; flex-shrink:0; }
+    .og-edit-info { font-size:11px; opacity:.8; }
+    .og-rows { flex:1; overflow-y:auto; }
+    .og-row { display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:8px; padding:7px 12px; border-top:1px solid var(--border); font-size:13px; }
+    .og-qty { font-weight:700; color:var(--primary); }
+    .og-price { font-weight:600; text-align:right; }
+    .og-trash { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:15px; padding:2px 4px; transition:color .15s; line-height:1; }
+    .og-trash:hover { color:var(--danger); }
+    .og-total { display:flex; justify-content:space-between; padding:8px 12px; border-top:2px solid var(--border); font-size:14px; font-weight:800; background:var(--bg); position:sticky; bottom:0; flex-shrink:0; }
+    .og-empty { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:13px; padding:16px; text-align:center; }
+
+    /* Item catalog buttons (bottom half of screen 2) */
+    .item-btns-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .item-btn { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:8px 6px 7px; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; transition:border-color .12s, background .12s; text-align:center; width:100%; }
+    .item-btn:active { background:var(--primary-light); border-color:var(--primary); }
+    .ib-name { font-size:12px; font-weight:600; line-height:1.2; }
+    .ib-price { font-size:12px; font-weight:700; color:var(--primary); }
+
+    /* Screen 1 tighter headings */
+    .screen-h { font-size:16px; font-weight:700; margin-bottom:8px; margin-top:16px; }
+    .screen-h:first-child { margin-top:0; }
+    .screen-sub { font-size:12px; color:var(--text-muted); margin-bottom:10px; }
+
+    /* Other days dropdown */
+    .other-days-wrap { margin-top:12px; }
+
+    /* Collected order state */
+    .past-order-card.collected { opacity:.55; border-color:var(--border); }
+    .status-icon-wrap.collected { background:#f1f5f9; }
   </style>
 </head>
 <body>
@@ -132,25 +185,24 @@
 
     <!-- Screen 1: Date & Session -->
     <div class="screen" id="screen1">
-      <div class="pwa-section-title">Choose Date</div>
-      <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px">Select your show date.</p>
+      <div class="screen-h">Date</div>
       <div class="selector-grid" id="dateSelector"></div>
-
-      <div class="pwa-section-title" style="margin-top:24px">Choose Session</div>
-      <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px">When would you like your drinks?</p>
+      <div class="screen-h">Session</div>
       <div id="sessionSelector"></div>
     </div>
 
-    <!-- Screen 2: Menu -->
+    <!-- Screen 2: Order (also edit/view mode for existing orders) -->
     <div class="screen" id="screen2">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div>
-          <div class="pwa-section-title" style="margin-bottom:2px">Order Drinks</div>
-          <p style="color:var(--text-muted);font-size:13px" id="menuSubtitle"></p>
+      <!-- Top half: order grid -->
+      <div class="order-grid-pane" id="orderGridPane"></div>
+      <!-- Bottom half: item catalog -->
+      <div class="item-catalog-pane">
+        <div style="display:flex;align-items:center;padding:4px 0 6px;gap:8px">
+          <div style="flex:1;font-size:11px;color:var(--text-muted)" id="menuSubtitle"></div>
         </div>
-        <div style="font-size:13px;color:var(--primary);font-weight:700" id="basketCount">0 items</div>
+        <div class="cat-bar" id="categoryBar"></div>
+        <div class="item-btns-grid" id="menuGrid"></div>
       </div>
-      <div class="menu-grid" id="menuGrid"></div>
     </div>
 
     <!-- Screen 3: Review & Pay -->
@@ -210,7 +262,10 @@
           <div class="info-row"><span class="info-label">Total</span><span class="info-value" id="confTotal"></span></div>
         </div>
 
-        <button class="btn btn-secondary" style="margin-top:8px" id="newOrderBtn">Place Another Order</button>
+        <button class="btn btn-success btn-full" style="margin-top:16px;height:52px;border-radius:12px;display:none" id="collectBtn">
+          ✓ I've collected my drinks
+        </button>
+        <button class="btn btn-secondary" style="margin-top:8px" id="newOrderBtn">Home</button>
       </div>
     </div>
 

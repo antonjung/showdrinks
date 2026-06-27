@@ -6,12 +6,11 @@ const LS_NAME   = 'showdrinks_name';
 const LS_ORDERS = 'showdrinks_orders';
 
 function getSavedName()  { return localStorage.getItem(LS_NAME) || ''; }
-function saveName(name)  { localStorage.setItem(LS_NAME, name); }
+function saveName(n)     { localStorage.setItem(LS_NAME, n); }
 
 function getSavedOrders() {
   try { return JSON.parse(localStorage.getItem(LS_ORDERS) || '[]'); } catch { return []; }
 }
-
 function saveOrderLocally(o) {
   const list = getSavedOrders().filter(x => x.id !== o.id);
   list.unshift({ id: o.id, orderNumber: o.orderNumber || null, customerName: o.customerName,
@@ -25,13 +24,18 @@ const state = {
   step: 0,
   customerName: '',
   showDate: '', sessionId: '', sessionName: '',
-  basket: {},
+  basket: {},          // name → { name, price, quantity }
+  selectedCategory: null,
   orderId: null, orderNumber: null,
+  editingOrderId: null, editingOrderStatus: null, editingOrderNumber: null,
+  currentStatusOrderId: null,
   showConfig: null, sessions: null, menuItems: [], settings: null,
   statusUnsubscribe: null,
 };
 
 // ── Utilities ──────────────────────────────────────────────────────────────
+
+function today() { return new Date().toISOString().slice(0, 10); }
 
 function toast(msg, type = 'info') {
   const el = document.createElement('div');
@@ -63,10 +67,14 @@ function basketCount() {
 
 // ── Navigation ─────────────────────────────────────────────────────────────
 
+const body = document.querySelector('.pwa-body');
+
 function goTo(step) {
   document.getElementById('screen' + state.step).classList.remove('active');
   state.step = step;
   document.getElementById('screen' + step).classList.add('active');
+  // Compact hero on all non-home screens
+  body.classList.toggle('sub-screen', step !== 0);
   updateStepBar();
   updateBottomBar();
   window.scrollTo(0, 0);
@@ -82,30 +90,62 @@ function updateStepBar() {
 function updateBottomBar() {
   const bar  = document.getElementById('bottomBar');
   const next = document.getElementById('nextBtn');
-  if (state.step === 0 || state.step === 3 || state.step === 4) { bar.style.display = 'none'; return; }
+  const back = document.getElementById('backBtn');
+  if (state.step === 0 || state.step === 4) { bar.style.display = 'none'; return; }
+  if (state.step === 3) {
+    bar.style.display = 'flex';
+    back.textContent = '← Amend';
+    next.style.display = 'none';
+    return;
+  }
+  next.style.display = '';
   bar.style.display = 'flex';
   if (state.step === 2) {
-    next.textContent = 'Review Order →';
-    next.disabled = basketCount() === 0;
+    if (state.editingOrderId) {
+      back.textContent = '← Cancel';
+      const isEditable = state.editingOrderStatus === 'pending';
+      next.textContent = isEditable ? 'Save Changes' : 'View Status →';
+      next.disabled = false;
+    } else {
+      back.textContent = '← Back';
+      next.textContent = 'Review →';
+      next.disabled = basketCount() === 0;
+    }
   } else {
+    back.textContent = '← Back';
     next.textContent = 'Next →';
     next.disabled = false;
   }
 }
 
 document.getElementById('backBtn').addEventListener('click', () => {
-  if (state.step === 1) { goTo(0); renderHomeScreen(); }
-  else if (state.step > 0) goTo(state.step - 1);
+  if (state.step === 2 && state.editingOrderId) {
+    state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
+    state.basket = {};
+    goTo(0); renderHomeScreen();
+  } else if (state.step === 1) {
+    goTo(0); renderHomeScreen();
+  } else if (state.step > 0) {
+    goTo(state.step - 1);
+  }
 });
 
-document.getElementById('nextBtn').addEventListener('click', () => {
+document.getElementById('nextBtn').addEventListener('click', async () => {
   if (state.step === 1) {
     if (!state.showDate)  { toast('Please select a date',    'error'); return; }
     if (!state.sessionId) { toast('Please select a session', 'error'); return; }
     goTo(2); renderMenu();
   } else if (state.step === 2) {
-    if (basketCount() === 0) { toast('Add at least one item', 'error'); return; }
-    goTo(3); renderReview();
+    if (state.editingOrderId) {
+      if (state.editingOrderStatus !== 'pending') {
+        goTo(4); subscribeToOrderStatus(state.editingOrderId);
+      } else {
+        await saveOrderEdits();
+      }
+    } else {
+      if (basketCount() === 0) { toast('Add at least one item', 'error'); return; }
+      goTo(3); renderReview();
+    }
   }
 });
 
@@ -115,57 +155,77 @@ async function renderHomeScreen() {
   const homeContent = document.getElementById('homeContent');
   const savedName   = getSavedName();
 
-  if (!savedName) {
-    renderNameForm(homeContent);
-    return;
-  }
+  if (!savedName) { renderNameForm(homeContent); return; }
 
   state.customerName = savedName;
-  const saved = getSavedOrders();
+  const allSaved = getSavedOrders();
+  const todayStr = today();
 
-  // Render skeleton immediately so the page isn't blank
+  // Split into today vs other days
+  const todayOrders = allSaved.filter(o => o.showDate === todayStr);
+  const otherDates  = [...new Set(allSaved.filter(o => o.showDate !== todayStr).map(o => o.showDate))].sort().reverse();
+
   homeContent.innerHTML = buildWelcomeCard(savedName) +
-    '<div style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:14px">Loading orders…</div>';
+    '<div style="text-align:center;padding:12px 0;color:var(--text-muted);font-size:13px">Loading orders…</div>';
 
-  // Fetch live statuses in parallel
-  const docs = await Promise.all(
-    saved.map(o => db.collection('orders').doc(o.id).get().catch(() => null))
+  // Fetch live statuses for today's orders only (fast)
+  const todayDocs = await Promise.all(
+    todayOrders.map(o => db.collection('orders').doc(o.id).get().catch(() => null))
   );
-
-  const enriched = docs.map((doc, i) => {
+  const todayEnriched = todayDocs.map((doc, i) => {
     if (!doc || !doc.exists) return null;
-    return { ...saved[i], ...doc.data(), id: doc.id };
+    return { ...todayOrders[i], ...doc.data(), id: doc.id };
   }).filter(Boolean);
 
-  const open = enriched.filter(o => o.prepStatus !== 'ready');
-  const done = enriched.filter(o => o.prepStatus === 'ready');
+  const openOrders      = todayEnriched.filter(o => o.prepStatus === 'pending');
+  const doneOrders      = todayEnriched.filter(o => o.prepStatus === 'ready');
+  const collectedOrders = todayEnriched.filter(o => o.prepStatus === 'collected');
 
-  const openSection = open.length ? `
-    <div style="margin-bottom:16px">
-      <div class="orders-section-label pending-label">⏳ Open orders</div>
-      ${open.map(orderCard).join('')}
+  const openSection = openOrders.length ? `
+    <div style="margin-bottom:14px">
+      <div class="orders-section-label pending-label">⏳ Open orders – today</div>
+      ${openOrders.map(orderCard).join('')}
     </div>` : '';
 
-  // Ready orders: always show, can toggle older ones
-  const doneSection = done.length ? `
-    <div style="margin-bottom:16px">
+  const doneSection = doneOrders.length ? `
+    <div style="margin-bottom:14px">
       <div class="orders-section-label ready-label">✓ Ready to collect</div>
-      ${done.map(orderCard).join('')}
+      ${doneOrders.map(orderCard).join('')}
     </div>` : '';
 
-  const emptyMsg = (!open.length && !done.length && saved.length)
-    ? '<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">No active orders found.</p>'
+  const collectedSection = collectedOrders.length ? `
+    <div style="margin-bottom:14px">
+      <button class="past-toggle" onclick="toggleCollected(this)" style="font-size:12px;color:var(--text-muted)">
+        Show ${collectedOrders.length} collected order${collectedOrders.length !== 1 ? 's' : ''} ▾
+      </button>
+      <div class="collected-list" style="display:none">
+        ${collectedOrders.map(orderCard).join('')}
+      </div>
+    </div>` : '';
+
+  const noToday = !openOrders.length && !doneOrders.length && !collectedOrders.length && todayOrders.length
+    ? '<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">No active orders for today.</p>'
     : '';
+
+  // Other days dropdown
+  const otherSection = otherDates.length ? `
+    <div class="other-days-wrap">
+      <div class="section-label" style="margin-bottom:6px">Other days</div>
+      <select class="form-control" id="otherDaySelect" onchange="showOtherDay(this.value)" style="max-width:220px">
+        <option value="">Select date…</option>
+        ${otherDates.map(d => `<option value="${d}">${fmtDate(d)}</option>`).join('')}
+      </select>
+      <div id="otherDayOrders" style="margin-top:10px"></div>
+    </div>` : '';
 
   homeContent.innerHTML =
     buildWelcomeCard(savedName) +
-    openSection +
-    doneSection +
-    emptyMsg +
+    openSection + doneSection + collectedSection + noToday +
     `<button class="btn btn-primary btn-full btn-lg"
-             style="height:52px;border-radius:12px;margin-bottom:20px"
-             onclick="startNewOrder()">+ New Order</button>
-     <div style="padding-top:16px;border-top:1px solid var(--border)">
+             style="height:52px;border-radius:12px;margin:4px 0 16px"
+             onclick="startNewOrder()">+ New Order</button>` +
+    otherSection +
+    `<div style="padding-top:16px;border-top:1px solid var(--border);margin-top:4px">
        <div class="section-label">Look up an order</div>
        <div style="display:flex;gap:8px">
          <input type="number" id="checkOrderNum" class="form-control"
@@ -184,30 +244,40 @@ function buildWelcomeCard(name) {
 }
 
 function orderCard(o) {
-  const isReady = o.prepStatus === 'ready';
+  const isReady     = o.prepStatus === 'ready';
+  const isCollected = o.prepStatus === 'collected';
   const numLabel = o.orderNumber ? `<span style="font-weight:900;color:var(--primary)">#${o.orderNumber}</span> · ` : '';
-  const statusLabel = isReady
-    ? (o.locationName ? `✓ ${escHtml(o.locationName)}` : '✓ Ready')
-    : 'Pending';
-  return `
-    <div class="past-order-card ${isReady ? 'ready' : ''}" onclick="viewOrder('${o.id}')">
-      <div class="past-order-info">
-        <div class="poi-session">${numLabel}${escHtml(o.sessionName || '')}</div>
-        <div class="poi-detail">${fmtDate(o.showDate)}</div>
-      </div>
-      <div class="poi-right">
-        <span class="badge ${isReady ? 'badge-success' : 'badge-warning'}">${statusLabel}</span>
-        <div class="poi-total">${fmtCurrency(o.totalAmount)}</div>
-      </div>
-    </div>`;
+  const statusLabel = isCollected ? 'Collected'
+    : isReady ? (o.locationName ? `✓ ${escHtml(o.locationName)}` : '✓ Ready') : 'Pending';
+  const badgeCls = isCollected ? 'badge-primary' : isReady ? 'badge-success' : 'badge-warning';
+  return `<div class="past-order-card ${isReady ? 'ready' : ''} ${isCollected ? 'collected' : ''}"
+              onclick="viewOrder('${o.id}')">
+    <div class="past-order-info">
+      <div class="poi-session">${numLabel}${escHtml(o.sessionName || '')}</div>
+      <div class="poi-detail">${fmtDate(o.showDate)}</div>
+    </div>
+    <div class="poi-right">
+      <span class="badge ${badgeCls}">${statusLabel}</span>
+      <div class="poi-total">${fmtCurrency(o.totalAmount)}</div>
+    </div>
+  </div>`;
 }
+
+window.toggleCollected = function(btn) {
+  const list = btn.nextElementSibling;
+  const visible = list.style.display !== 'none';
+  list.style.display = visible ? 'none' : '';
+  btn.textContent = visible
+    ? btn.textContent.replace('▴', '▾')
+    : btn.textContent.replace('▾', '▴');
+};
 
 function renderNameForm(container) {
   container.innerHTML = `
     <div class="name-input-wrap">
-      <div style="text-align:center;margin-bottom:24px">
+      <div style="text-align:center;margin-bottom:20px">
         <div class="pwa-section-title">Welcome!</div>
-        <p style="color:var(--text-muted);font-size:15px;margin-top:6px">Enter your name so we can find your order.</p>
+        <p style="color:var(--text-muted);font-size:14px;margin-top:4px">Enter your name to get started.</p>
       </div>
       <div class="form-group">
         <label for="customerName">Your Name</label>
@@ -217,7 +287,7 @@ function renderNameForm(container) {
       <button class="btn btn-primary btn-full btn-lg"
               style="height:52px;border-radius:12px;margin-top:8px"
               onclick="submitName()">Continue →</button>
-      <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border)">
+      <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border)">
         <div class="section-label">Already ordered?</div>
         <div style="display:flex;gap:8px">
           <input type="number" id="checkOrderNum" class="form-control"
@@ -240,30 +310,55 @@ window.submitName = function() {
   if (!name) { toast('Please enter your name', 'error'); return; }
   state.customerName = name;
   saveName(name);
-  goTo(1);
-  renderDateSession();
+  goTo(1); renderDateSession();
 };
 
 window.changeName = function() {
-  localStorage.removeItem(LS_NAME);
-  state.customerName = '';
-  renderHomeScreen();
+  localStorage.removeItem(LS_NAME); state.customerName = ''; renderHomeScreen();
 };
 
 window.startNewOrder = function() {
   state.showDate = ''; state.sessionId = ''; state.sessionName = ''; state.basket = {};
-  goTo(1);
-  renderDateSession();
+  state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
+  goTo(1); renderDateSession();
 };
 
 window.viewOrder = async function(orderId) {
   try {
     const doc = await db.collection('orders').doc(orderId).get();
     if (!doc.exists) { toast('Order not found', 'error'); return; }
-    showOrderStatus({ id: doc.id, ...doc.data() });
-    goTo(4);
-    subscribeToOrderStatus(orderId);
+    const order = { id: doc.id, ...doc.data() };
+    state.currentStatusOrderId = orderId;
+    // Load order into the edit/view screen (screen 2)
+    state.editingOrderId     = orderId;
+    state.editingOrderStatus = order.prepStatus;
+    state.editingOrderNumber = order.orderNumber || null;
+    state.showDate    = order.showDate;
+    state.sessionId   = order.sessionId;
+    state.sessionName = order.sessionName;
+    // Build basket from saved items (key = item name)
+    state.basket = {};
+    (order.items || []).forEach(item => {
+      state.basket[item.name] = { name: item.name, price: item.price, quantity: item.quantity };
+    });
+    state.selectedCategory = null;
+    goTo(2); renderMenu();
   } catch(e) { toast('Error: ' + e.message, 'error'); }
+};
+
+window.showOtherDay = async function(date) {
+  if (!date) return;
+  const container = document.getElementById('otherDayOrders');
+  container.innerHTML = '<p style="font-size:13px;color:var(--text-muted)">Loading…</p>';
+  const saved = getSavedOrders().filter(o => o.showDate === date);
+  const docs  = await Promise.all(saved.map(o => db.collection('orders').doc(o.id).get().catch(() => null)));
+  const enriched = docs.map((doc, i) => {
+    if (!doc || !doc.exists) return null;
+    return { ...saved[i], ...doc.data(), id: doc.id };
+  }).filter(Boolean);
+  container.innerHTML = enriched.length
+    ? enriched.map(orderCard).join('')
+    : '<p style="font-size:13px;color:var(--text-muted)">No orders found for this date.</p>';
 };
 
 window.checkOrderByNumber = async function() {
@@ -271,7 +366,6 @@ window.checkOrderByNumber = async function() {
   const num   = input ? parseInt(input.value, 10) : NaN;
   if (!num || num < 1) { toast('Enter an order number', 'error'); return; }
   try {
-    // Search by orderNumber, most recent first
     const snap = await db.collection('orders')
       .where('orderNumber', '==', num)
       .orderBy('createdAt', 'desc')
@@ -285,12 +379,16 @@ window.checkOrderByNumber = async function() {
 // ── Screen 1: Date & Session ───────────────────────────────────────────────
 
 function renderDateSession() {
-  const dates = state.showConfig?.dates || [];
+  const todayStr = today();
+  // Only show dates that are today or future
+  const dates = (state.showConfig?.dates || []).filter(d => d >= todayStr);
   const dateSel = document.getElementById('dateSelector');
+
   dateSel.innerHTML = dates.length
     ? dates.map(d => `<button class="selector-btn ${d === state.showDate ? 'selected' : ''}"
                                onclick="selectDate('${d}')" data-date="${d}">${fmtDate(d)}</button>`).join('')
-    : '<p style="color:var(--text-muted);font-size:14px;grid-column:1/-1">No show dates configured yet.</p>';
+    : '<p style="color:var(--text-muted);font-size:14px;grid-column:1/-1">No upcoming show dates.</p>';
+
   renderSessionSelector();
 }
 
@@ -301,7 +399,7 @@ window.selectDate = function(date) {
 };
 
 function renderSessionSelector() {
-  const sesDiv  = document.getElementById('sessionSelector');
+  const sesDiv   = document.getElementById('sessionSelector');
   const sessions = state.sessions || {};
   const now = new Date();
 
@@ -337,43 +435,131 @@ window.selectSession = function(id, name) {
   updateBottomBar();
 };
 
-// ── Screen 2: Menu ─────────────────────────────────────────────────────────
+// ── Screen 2: Order / Edit ─────────────────────────────────────────────────
 
 function renderMenu() {
-  document.getElementById('menuSubtitle').textContent = `${fmtDate(state.showDate)} · ${state.sessionName}`;
-  const grid = document.getElementById('menuGrid');
-  grid.innerHTML = state.menuItems.length
-    ? state.menuItems.map(item => {
-        const qty = state.basket[item.id]?.quantity || 0;
-        return `<div class="menu-item-card">
-          <div class="mic-name">${escHtml(item.name)}</div>
-          <div class="mic-price">${fmtCurrency(item.price)}</div>
-          <div class="qty-control">
-            <button onclick="changeQty('${item.id}',-1)">−</button>
-            <span class="qty-num" id="qty-${item.id}">${qty}</span>
-            <button onclick="changeQty('${item.id}',1)">+</button>
-          </div>
-        </div>`;
-      }).join('')
-    : '<p style="color:var(--text-muted);font-size:14px">No items on the menu yet.</p>';
-  updateBasketCount(); updateBottomBar();
+  // Subtitle: date · session · (status if editing)
+  const statusTag = state.editingOrderId
+    ? ` · ${state.editingOrderStatus === 'ready' ? '✅ Ready' : state.editingOrderStatus === 'collected' ? '🎉 Collected' : '⏳ Pending'}`
+    : '';
+  const numTag = state.editingOrderNumber ? `#${state.editingOrderNumber} · ` : '';
+  document.getElementById('menuSubtitle').textContent =
+    `${numTag}${fmtDate(state.showDate)} · ${state.sessionName}${statusTag}`;
+
+  // Category bar
+  const cats   = [...new Set(state.menuItems.filter(i => i.category).map(i => i.category))].sort();
+  const catBar = document.getElementById('categoryBar');
+  if (cats.length) {
+    if (!state.selectedCategory) state.selectedCategory = 'all';
+    catBar.innerHTML =
+      `<button class="cat-btn ${state.selectedCategory === 'all' ? 'active' : ''}"
+               onclick="selectCategory('all')">All</button>` +
+      cats.map(c => `<button class="cat-btn ${state.selectedCategory === c ? 'active' : ''}"
+                              onclick="selectCategory('${escHtml(c)}')">${escHtml(c)}</button>`).join('');
+    catBar.style.display = '';
+  } else {
+    state.selectedCategory = 'all';
+    catBar.style.display = 'none';
+  }
+
+  renderOrderGrid();
+  renderMenuItems();
 }
 
-window.changeQty = function(id, delta) {
-  const item = state.menuItems.find(i => i.id === id);
-  if (!item) return;
-  if (!state.basket[id]) state.basket[id] = { name: item.name, price: item.price, quantity: 0 };
-  state.basket[id].quantity = Math.max(0, state.basket[id].quantity + delta);
-  if (state.basket[id].quantity === 0) delete state.basket[id];
-  const el = document.getElementById('qty-' + id);
-  if (el) el.textContent = state.basket[id]?.quantity || 0;
-  updateBasketCount(); updateBottomBar();
+function renderOrderGrid() {
+  const pane  = document.getElementById('orderGridPane');
+  const items = Object.values(state.basket);
+
+  if (!items.length) {
+    pane.innerHTML = '<div class="og-empty">Your order is empty — tap items below to add</div>';
+    return;
+  }
+
+  const count = basketCount();
+  pane.innerHTML =
+    `<div class="og-header">
+       <span>${count} item${count !== 1 ? 's' : ''}</span>
+       <span>${fmtCurrency(basketTotal())}</span>
+     </div>
+     <div class="og-rows">` +
+    items.map(i => {
+      const key = encodeURIComponent(i.name);
+      return `<div class="og-row">
+        <span class="og-qty">${i.quantity}×</span>
+        <span>${escHtml(i.name)}</span>
+        <span class="og-price">${fmtCurrency(i.price * i.quantity)}</span>
+        <button class="og-trash" onclick="removeFromBasket('${key}')" title="Remove">🗑</button>
+      </div>`;
+    }).join('') +
+    `</div>
+     <div class="og-total"><span>Total</span><span>${fmtCurrency(basketTotal())}</span></div>`;
+}
+
+function renderMenuItems() {
+  const grid = document.getElementById('menuGrid');
+  const cat  = state.selectedCategory;
+  const items = state.menuItems.filter(item =>
+    cat === 'all' || !cat || item.category === cat
+  );
+
+  grid.innerHTML = items.length
+    ? items.map(item => `
+        <button class="item-btn" onclick="addItem('${item.id}')">
+          <span class="ib-name">${escHtml(item.name)}</span>
+          <span class="ib-price">${fmtCurrency(item.price)}</span>
+        </button>`).join('')
+    : '<p style="color:var(--text-muted);font-size:13px;grid-column:1/-1">No items.</p>';
+}
+
+window.selectCategory = function(cat) {
+  state.selectedCategory = cat;
+  document.querySelectorAll('.cat-btn').forEach(b =>
+    b.classList.toggle('active',
+      (cat === 'all' && b.textContent.trim() === 'All') || b.textContent.trim() === cat));
+  renderMenuItems();
 };
 
-function updateBasketCount() {
-  const count = basketCount();
-  const el = document.getElementById('basketCount');
-  if (el) el.textContent = count === 0 ? '0 items' : `${count} item${count !== 1 ? 's' : ''} · ${fmtCurrency(basketTotal())}`;
+window.addItem = function(menuItemId) {
+  const item = state.menuItems.find(i => i.id === menuItemId);
+  if (!item) return;
+  const key = item.name;
+  if (!state.basket[key]) state.basket[key] = { name: item.name, price: item.price, quantity: 0 };
+  state.basket[key].quantity += 1;
+  renderOrderGrid();
+  updateBottomBar();
+};
+
+window.removeFromBasket = function(encodedKey) {
+  const key = decodeURIComponent(encodedKey);
+  delete state.basket[key];
+  renderOrderGrid();
+  updateBottomBar();
+};
+
+async function saveOrderEdits() {
+  if (!state.editingOrderId) return;
+  const next = document.getElementById('nextBtn');
+  next.disabled = true; next.textContent = 'Saving…';
+  try {
+    const items = Object.values(state.basket).map(i => ({ name: i.name, price: i.price, quantity: i.quantity }));
+    await db.collection('orders').doc(state.editingOrderId).update({
+      items, totalAmount: basketTotal(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    saveOrderLocally({ id: state.editingOrderId, orderNumber: state.editingOrderNumber,
+      customerName: state.customerName, showDate: state.showDate,
+      sessionName: state.sessionName, totalAmount: basketTotal() });
+    toast('Order updated', 'success');
+    state.currentStatusOrderId = state.editingOrderId;
+    const doc = await db.collection('orders').doc(state.editingOrderId).get();
+    if (doc.exists) showOrderStatus({ id: doc.id, ...doc.data() });
+    state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
+    goTo(4);
+    subscribeToOrderStatus(state.currentStatusOrderId);
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+    next.disabled = false; next.textContent = 'Save Changes';
+  }
 }
 
 // ── Screen 3: Review & Pay ─────────────────────────────────────────────────
@@ -420,7 +606,6 @@ async function placeOrder(paymentMode) {
   };
 
   try {
-    // Sequential order number per show-date via transaction
     const counterRef = db.collection('counters').doc(state.showDate);
     const orderRef   = db.collection('orders').doc();
     let orderNumber;
@@ -432,8 +617,9 @@ async function placeOrder(paymentMode) {
       t.set(orderRef, { ...order, orderNumber });
     });
 
-    state.orderId     = orderRef.id;
-    state.orderNumber = orderNumber;
+    state.orderId              = orderRef.id;
+    state.currentStatusOrderId = orderRef.id;
+    state.orderNumber          = orderNumber;
     saveOrderLocally({ ...order, id: orderRef.id, orderNumber });
 
     if (paymentMode === 'bar') {
@@ -457,12 +643,17 @@ function initiateSumupPayment() {
 // ── Screen 4: Status ───────────────────────────────────────────────────────
 
 function showOrderStatus(order) {
-  const isReady = order.prepStatus === 'ready';
-  document.getElementById('statusIcon').className   = `status-icon-wrap ${isReady ? 'ready' : 'pending'}`;
-  document.getElementById('statusIcon').textContent = isReady ? '✅' : '⏳';
-  document.getElementById('statusTitle').textContent = isReady ? 'Your drinks are ready!' : 'Order received!';
-  document.getElementById('statusSub').textContent   = isReady
-    ? 'Head to the collection point below.'
+  const isReady     = order.prepStatus === 'ready';
+  const isCollected = order.prepStatus === 'collected';
+
+  const iconState = isCollected ? 'collected' : isReady ? 'ready' : 'pending';
+  document.getElementById('statusIcon').className   = `status-icon-wrap ${iconState}`;
+  document.getElementById('statusIcon').textContent = isCollected ? '🎉' : isReady ? '✅' : '⏳';
+  document.getElementById('statusTitle').textContent = isCollected ? 'Enjoy your drinks!'
+    : isReady ? 'Your drinks are ready!' : 'Order received!';
+  document.getElementById('statusSub').textContent = isCollected
+    ? 'Your order has been collected.'
+    : isReady ? 'Head to the collection point below.'
     : 'We\'re preparing your drinks. Check back soon!';
 
   const numEl = document.getElementById('confOrderNum');
@@ -480,6 +671,9 @@ function showOrderStatus(order) {
   document.getElementById('confDate').textContent    = fmtDate(order.showDate);
   document.getElementById('confSession').textContent = order.sessionName || order.sessionId;
   document.getElementById('confTotal').textContent   = fmtCurrency(order.totalAmount || 0);
+
+  const collectBtn = document.getElementById('collectBtn');
+  if (collectBtn) collectBtn.style.display = isReady ? '' : 'none';
 }
 
 function subscribeToOrderStatus(orderId) {
@@ -489,31 +683,43 @@ function subscribeToOrderStatus(orderId) {
   });
 }
 
+document.getElementById('collectBtn').addEventListener('click', async () => {
+  const orderId = state.currentStatusOrderId;
+  if (!orderId) return;
+  try {
+    await db.collection('orders').doc(orderId).update({
+      prepStatus: 'collected',
+      collectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    toast('Order marked as collected', 'success');
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+  }
+});
+
 document.getElementById('newOrderBtn').addEventListener('click', () => {
   if (state.statusUnsubscribe) { state.statusUnsubscribe(); state.statusUnsubscribe = null; }
-  state.showDate = ''; state.sessionId = ''; state.sessionName = ''; state.basket = {}; state.orderId = null;
-  goTo(0);
-  renderHomeScreen();
+  state.showDate = ''; state.sessionId = ''; state.sessionName = '';
+  state.basket = {}; state.orderId = null; state.selectedCategory = null;
+  state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
+  goTo(0); renderHomeScreen();
 });
 
 // ── Service Worker update banner ───────────────────────────────────────────
 
 function initServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-
   navigator.serviceWorker.register('sw.js').then(reg => {
-    // A waiting SW means a new version is installed but waiting for old tabs to close
     if (reg.waiting) showUpdateBanner(reg.waiting);
-
     reg.addEventListener('updatefound', () => {
       const sw = reg.installing;
       sw.addEventListener('statechange', () => {
         if (sw.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(sw);
       });
     });
-  }).catch(e => console.warn('SW registration failed', e));
+  }).catch(e => console.warn('SW failed', e));
 
-  // When the SW takes control after skipWaiting, reload to get the new version
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!reloading) { reloading = true; window.location.reload(); }
@@ -579,7 +785,7 @@ async function init() {
 
   } catch(e) {
     console.error(e);
-    toast('Could not connect to database.', 'error');
+    toast('Could not connect – check your connection.', 'error');
   }
 
   renderHomeScreen();

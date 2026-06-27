@@ -128,74 +128,153 @@ document.getElementById('saveShowBtn').addEventListener('click', async () => {
 
 // ── Menu Items ─────────────────────────────────────────────────────────────
 
+let _allMenuItems        = [];
+let _menuCategories      = [];
+let _selectedMenuCat     = 'all';
+
 async function loadMenuItems() {
-  const snap = await db.collection('menuItems').orderBy('name').get();
-  const list = document.getElementById('menuItemsList');
-  const clearBtn = document.getElementById('clearAllMenuBtn');
-  if (clearBtn) clearBtn.style.display = snap.empty ? 'none' : '';
-  if (snap.empty) {
-    list.innerHTML = '<p style="color:var(--text-muted);font-size:14px">No items yet. Add some above.</p>';
-    return;
+  // Fetch all, sort client-side by category then name
+  const snap = await db.collection('menuItems').get();
+  _allMenuItems = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const ca = (a.category || '').toLowerCase(), cb = (b.category || '').toLowerCase();
+      if (ca !== cb) return ca < cb ? -1 : 1;
+      return (a.name || '').toLowerCase() < (b.name || '').toLowerCase() ? -1 : 1;
+    });
+
+  _menuCategories = [...new Set(_allMenuItems.map(i => i.category).filter(Boolean))].sort();
+
+  // Reset filter if category no longer exists
+  if (_selectedMenuCat !== 'all' && !_menuCategories.includes(_selectedMenuCat)) {
+    _selectedMenuCat = 'all';
   }
-  list.innerHTML = snap.docs.map(d => {
-    const item = d.data();
-    return `
-      <div class="item-row">
-        <span class="item-name">${escHtml(item.name)}</span>
-        <span class="item-price">${fmtCurrency(item.price)}</span>
-        <div class="item-actions">
-          <button class="btn btn-secondary btn-sm" onclick="editMenuItem('${d.id}','${escHtml(item.name)}',${item.price})">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteMenuItem('${d.id}')">Delete</button>
-        </div>
-      </div>`;
-  }).join('');
+
+  const clearBtn = document.getElementById('clearAllMenuBtn');
+  if (clearBtn) clearBtn.style.display = _allMenuItems.length ? '' : 'none';
+
+  renderMenuCategoryBar();
+  renderMenuTable();
 }
 
-document.getElementById('bulkAddMenuBtn').addEventListener('click', async () => {
-  const raw = document.getElementById('menuItemsBulk').value.trim();
-  if (!raw) { toast('Enter at least one item', 'error'); return; }
+function renderMenuCategoryBar() {
+  const bar = document.getElementById('menuCategoryBar');
+  if (!_menuCategories.length) { bar.innerHTML = ''; return; }
+  bar.innerHTML = ['all', ..._menuCategories].map(cat => `
+    <button class="cat-filter-btn ${cat === _selectedMenuCat ? 'active' : ''}"
+            onclick="setMenuCat('${escHtml(cat)}')">
+      ${cat === 'all' ? 'All' : escHtml(cat)}
+    </button>`).join('');
+}
 
-  const items = []; const errors = [];
-  raw.split('\n').forEach((line, i) => {
-    line = line.trim();
-    if (!line) return;
-    const lastComma = line.lastIndexOf(',');
-    if (lastComma === -1) { errors.push(`Line ${i+1}: no comma found`); return; }
-    const name  = line.slice(0, lastComma).trim();
-    const price = parseFloat(line.slice(lastComma + 1).trim().replace(/£/g, ''));
-    if (!name)      { errors.push(`Line ${i+1}: empty name`); return; }
-    if (isNaN(price) || price < 0) { errors.push(`Line ${i+1}: invalid price`); return; }
-    items.push({ name, price });
-  });
+window.setMenuCat = function(cat) {
+  _selectedMenuCat = cat;
+  renderMenuCategoryBar();
+  renderMenuTable();
+};
 
-  if (errors.length) { toast(errors.join(' | '), 'error'); return; }
-  if (!items.length)  { toast('No valid items found', 'error'); return; }
+function renderMenuTable() {
+  const tbody = document.getElementById('menuTableBody');
+  const items = _selectedMenuCat === 'all'
+    ? _allMenuItems
+    : _allMenuItems.filter(i => i.category === _selectedMenuCat);
 
-  try {
-    const batch = db.batch();
-    items.forEach(item => {
-      batch.set(db.collection('menuItems').doc(), { name: item.name, price: item.price, available: true, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  const defaultCat = _selectedMenuCat === 'all' ? '' : _selectedMenuCat;
+  tbody.innerHTML = items.map(i => menuItemRow(i.id, i)).join('') + newItemRow(defaultCat);
+}
+
+function categorySelectHtml(selected, onchangeJs) {
+  const opts = `<option value="">— none —</option>` +
+    _menuCategories.map(c =>
+      `<option value="${escHtml(c)}"${c === selected ? ' selected' : ''}>${escHtml(c)}</option>`
+    ).join('') +
+    `<option value="__new__">+ Add new category…</option>`;
+  return `<select class="grid-input" onchange="${onchangeJs}">${opts}</select>`;
+}
+
+function menuItemRow(id, item) {
+  const name  = escHtml(item.name || '');
+  const price = Number(item.price || 0).toFixed(2);
+  return `<tr id="mrow-${id}">
+    <td>${categorySelectHtml(item.category || '', `handleCatChange('${id}',this)`)}</td>
+    <td><input class="grid-input" value="${name}" placeholder="Item name"
+               onblur="saveMenuField('${id}','name',this.value.trim())"></td>
+    <td><input class="grid-input price-input" type="number" value="${price}" min="0" step="0.50"
+               onblur="saveMenuField('${id}','price',parseFloat(this.value)||0)"></td>
+    <td style="text-align:center">
+      <button class="grid-del-btn" title="Delete" onclick="deleteMenuItem('${id}')">×</button>
+    </td>
+  </tr>`;
+}
+
+function newItemRow(defaultCat) {
+  return `<tr id="newItemRow" class="new-item-row">
+    <td>${categorySelectHtml(defaultCat, 'handleNewCatChange(this)')}</td>
+    <td><input class="grid-input" id="newItemName" placeholder="New item name…"
+               onblur="autoCreateItem()"></td>
+    <td><input class="grid-input price-input" type="number" id="newItemPrice"
+               placeholder="0.00" min="0" step="0.50" onblur="autoCreateItem()"></td>
+    <td></td>
+  </tr>`;
+}
+
+// Prompt for a new category name; update select and optionally save to a doc
+function promptNewCategory(selectEl, afterCb) {
+  const name = prompt('New category name:');
+  if (!name || !name.trim()) { selectEl.value = ''; return; }
+  const cat = name.trim();
+  if (!_menuCategories.includes(cat)) { _menuCategories.push(cat); _menuCategories.sort(); }
+  // Rebuild the select options in place
+  selectEl.innerHTML = `<option value="">— none —</option>` +
+    _menuCategories.map(c => `<option value="${escHtml(c)}"${c === cat ? ' selected' : ''}>${escHtml(c)}</option>`).join('') +
+    `<option value="__new__">+ Add new category…</option>`;
+  selectEl.value = cat;
+  if (afterCb) afterCb(cat);
+}
+
+window.handleCatChange = async function(id, selectEl) {
+  if (selectEl.value === '__new__') {
+    promptNewCategory(selectEl, async cat => {
+      await saveMenuField(id, 'category', cat);
+      await loadMenuItems();
     });
-    await batch.commit();
-    document.getElementById('menuItemsBulk').value = '';
-    document.getElementById('bulkStatus').textContent = '';
-    loadMenuItems();
-    toast(`Added ${items.length} item${items.length !== 1 ? 's' : ''}`, 'success');
+  } else {
+    await saveMenuField(id, 'category', selectEl.value);
+    // If filtering by category and this item moved out, reload
+    if (_selectedMenuCat !== 'all') await loadMenuItems();
+  }
+};
+
+window.handleNewCatChange = function(selectEl) {
+  if (selectEl.value === '__new__') promptNewCategory(selectEl, null);
+};
+
+window.autoCreateItem = async function() {
+  const nameEl  = document.getElementById('newItemName');
+  const priceEl = document.getElementById('newItemPrice');
+  const catSel  = document.querySelector('#newItemRow select');
+  if (!nameEl) return;
+  const name = nameEl.value.trim();
+  if (!name) return;
+  const cat   = (catSel?.value === '__new__' || !catSel?.value) ? '' : catSel.value;
+  const price = parseFloat(priceEl?.value) || 0;
+  try {
+    await db.collection('menuItems').add({
+      category: cat, name, price, available: true,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    await loadMenuItems();
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
   }
-});
+};
 
-document.getElementById('clearBulkBtn').addEventListener('click', () => {
-  document.getElementById('menuItemsBulk').value = '';
-  document.getElementById('bulkStatus').textContent = '';
-});
-
-// Live line count feedback
-document.getElementById('menuItemsBulk').addEventListener('input', () => {
-  const lines = document.getElementById('menuItemsBulk').value.split('\n').filter(l => l.trim()).length;
-  document.getElementById('bulkStatus').textContent = lines ? `${lines} item${lines !== 1 ? 's' : ''}` : '';
-});
+window.saveMenuField = async function(id, field, value) {
+  try {
+    await db.collection('menuItems').doc(id).update({ [field]: value });
+  } catch(e) {
+    toast('Save failed: ' + e.message, 'error');
+  }
+};
 
 document.getElementById('clearAllMenuBtn').addEventListener('click', async () => {
   if (!confirm('Delete ALL menu items?')) return;
@@ -203,19 +282,21 @@ document.getElementById('clearAllMenuBtn').addEventListener('click', async () =>
   const batch = db.batch();
   snap.docs.forEach(d => batch.delete(d.ref));
   await batch.commit();
+  _allMenuItems = []; _menuCategories = []; _selectedMenuCat = 'all';
   loadMenuItems();
   toast('All items deleted', 'info');
 });
 
 window.deleteMenuItem = async function(id) {
-  if (!confirm('Delete this item?')) return;
   await db.collection('menuItems').doc(id).delete();
-  loadMenuItems();
+  _allMenuItems = _allMenuItems.filter(i => i.id !== id);
+  _menuCategories = [...new Set(_allMenuItems.map(i => i.category).filter(Boolean))].sort();
+  if (_selectedMenuCat !== 'all' && !_menuCategories.includes(_selectedMenuCat)) _selectedMenuCat = 'all';
+  const clearBtn = document.getElementById('clearAllMenuBtn');
+  if (clearBtn) clearBtn.style.display = _allMenuItems.length ? '' : 'none';
+  renderMenuCategoryBar();
+  renderMenuTable();
   toast('Item deleted', 'info');
-};
-
-window.editMenuItem = function(id, name, price) {
-  openModal('Edit Menu Item', { id, name, price, type: 'menuItem' });
 };
 
 // ── Locations ──────────────────────────────────────────────────────────────
@@ -294,16 +375,11 @@ document.getElementById('editSaveBtn').addEventListener('click', async () => {
   if (!name) { toast('Name required', 'error'); return; }
 
   try {
-    if (_modalCtx.type === 'menuItem') {
-      const price = parseFloat(document.getElementById('editPrice').value);
-      if (isNaN(price)) { toast('Valid price required', 'error'); return; }
-      await db.collection('menuItems').doc(_modalCtx.id).update({ name, price });
-      loadMenuItems();
-    } else if (_modalCtx.type === 'location') {
+    if (_modalCtx.type === 'location') {
       await db.collection('locations').doc(_modalCtx.id).update({ name });
       loadLocations();
+      closeModal();
     }
-    closeModal();
     toast('Saved', 'success');
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
@@ -351,7 +427,9 @@ async function loadOrders() {
 
   _ordersUnsubscribe = query.onSnapshot(snap => {
     let orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (status) orders = orders.filter(o => o.prepStatus === status);
+    if (status === 'all') { /* no filter */ }
+    else if (status === '') orders = orders.filter(o => o.prepStatus !== 'collected');
+    else orders = orders.filter(o => o.prepStatus === status);
     renderOrders(orders);
   }, err => {
     console.error('Firestore orders error:', err);
@@ -385,14 +463,24 @@ function renderOrders(orders) {
   const locationOptions = _locations.map(l => `<option value="${l.id}">${escHtml(l.name)}</option>`).join('');
 
   container.innerHTML = orders.map(o => {
-    const isPrepared = o.prepStatus === 'ready';
+    const isReady     = o.prepStatus === 'ready';
+    const isCollected = o.prepStatus === 'collected';
     const sessionLabel = o.sessionName || o.sessionId || '';
+    const statusBadge = isCollected ? '<span class="badge badge-primary">Collected</span>'
+      : isReady ? '<span class="badge badge-success">Ready</span>'
+      : '<span class="badge badge-warning">Pending</span>';
+    const actionBtns = isCollected
+      ? `<button class="btn btn-secondary btn-sm" onclick="markReady('${o.id}')">↩ Undo Collected</button>`
+      : isReady
+        ? `<button class="btn btn-primary btn-sm" onclick="markCollected('${o.id}')">✓ Collected</button>
+           <button class="btn btn-secondary btn-sm" onclick="markPending('${o.id}')">↩ Pending</button>`
+        : `<button class="btn btn-success btn-sm" onclick="markReady('${o.id}')">✓ Mark Ready</button>`;
     return `
-      <div class="order-card ${isPrepared ? 'prepared' : ''}" id="order-${o.id}">
+      <div class="order-card ${isReady ? 'prepared' : ''} ${isCollected ? 'order-collected' : ''}" id="order-${o.id}">
         <div class="order-card-header">
           ${o.orderNumber ? `<span style="font-size:22px;font-weight:900;color:var(--primary);min-width:44px">#${o.orderNumber}</span>` : ''}
           <div class="order-customer">${escHtml(o.customerName)}</div>
-          <span class="badge ${isPrepared ? 'badge-success' : 'badge-warning'}">${isPrepared ? 'Ready' : 'Pending'}</span>
+          ${statusBadge}
           <span class="badge badge-primary">${escHtml(sessionLabel)}</span>
           <span style="font-size:12px;color:var(--text-muted)">${fmtDate(o.showDate)}</span>
           <div class="order-total">${fmtCurrency(o.totalAmount || 0)}</div>
@@ -411,9 +499,7 @@ function renderOrders(orders) {
             ${locationOptions}
           </select>
           ${o.locationId ? `<span class="badge badge-primary">📍 ${escHtml(o.locationName || '')}</span>` : ''}
-          ${!isPrepared
-            ? `<button class="btn btn-success btn-sm" onclick="markReady('${o.id}')">✓ Mark Ready</button>`
-            : `<button class="btn btn-secondary btn-sm" onclick="markPending('${o.id}')">↩ Mark Pending</button>`}
+          ${actionBtns}
           <span style="font-size:12px;color:var(--text-muted);margin-left:auto">
             ${o.paymentMode === 'bar' ? '💵 Pay at bar' : '💳 Paid online'}
           </span>
@@ -447,6 +533,19 @@ window.markPending = async function(id) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     toast('Order marked as pending', 'info');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+};
+
+window.markCollected = async function(id) {
+  try {
+    await db.collection('orders').doc(id).update({
+      prepStatus: 'collected',
+      collectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Order marked as collected', 'success');
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
   }

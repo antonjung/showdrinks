@@ -1,4 +1,4 @@
-const CACHE = 'showdrinks-v2';
+const CACHE = 'showdrinks-1.0.9';
 const STATIC = [
   './',
   './index.html',
@@ -31,15 +31,15 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (url.hostname.includes('firebase') || url.hostname.includes('gstatic') || url.hostname.includes('cloudflare')) return;
 
+  // Network-first: always try to get fresh content; fall back to cache when offline
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(resp => {
+    fetch(e.request)
+      .then(resp => {
         if (resp && resp.status === 200 && url.origin === location.origin) {
           caches.open(CACHE).then(c => c.put(e.request, resp.clone()));
         }
         return resp;
-      });
-    })
+      })
+      .catch(() => caches.match(e.request))
   );
 });
