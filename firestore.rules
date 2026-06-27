@@ -21,6 +21,11 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Per-date order counters — readable/writable for sequential order numbers
+    match /counters/{id} {
+      allow read, write: if true;
+    }
+
     // Orders — customers can create and read; admin can update (mark ready, set location)
     match /orders/{id} {
       allow read: if true;

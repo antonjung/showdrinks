@@ -131,8 +131,10 @@ document.getElementById('saveShowBtn').addEventListener('click', async () => {
 async function loadMenuItems() {
   const snap = await db.collection('menuItems').orderBy('name').get();
   const list = document.getElementById('menuItemsList');
+  const clearBtn = document.getElementById('clearAllMenuBtn');
+  if (clearBtn) clearBtn.style.display = snap.empty ? 'none' : '';
   if (snap.empty) {
-    list.innerHTML = '<p style="color:var(--text-muted);font-size:14px">No items yet. Add one above.</p>';
+    list.innerHTML = '<p style="color:var(--text-muted);font-size:14px">No items yet. Add some above.</p>';
     return;
   }
   list.innerHTML = snap.docs.map(d => {
@@ -149,20 +151,60 @@ async function loadMenuItems() {
   }).join('');
 }
 
-document.getElementById('addMenuItemBtn').addEventListener('click', async () => {
-  const name = document.getElementById('menuItemName').value.trim();
-  const price = parseFloat(document.getElementById('menuItemPrice').value);
-  if (!name) { toast('Enter an item name', 'error'); return; }
-  if (isNaN(price) || price < 0) { toast('Enter a valid price', 'error'); return; }
+document.getElementById('bulkAddMenuBtn').addEventListener('click', async () => {
+  const raw = document.getElementById('menuItemsBulk').value.trim();
+  if (!raw) { toast('Enter at least one item', 'error'); return; }
+
+  const items = []; const errors = [];
+  raw.split('\n').forEach((line, i) => {
+    line = line.trim();
+    if (!line) return;
+    const lastComma = line.lastIndexOf(',');
+    if (lastComma === -1) { errors.push(`Line ${i+1}: no comma found`); return; }
+    const name  = line.slice(0, lastComma).trim();
+    const price = parseFloat(line.slice(lastComma + 1).trim().replace(/£/g, ''));
+    if (!name)      { errors.push(`Line ${i+1}: empty name`); return; }
+    if (isNaN(price) || price < 0) { errors.push(`Line ${i+1}: invalid price`); return; }
+    items.push({ name, price });
+  });
+
+  if (errors.length) { toast(errors.join(' | '), 'error'); return; }
+  if (!items.length)  { toast('No valid items found', 'error'); return; }
+
   try {
-    await db.collection('menuItems').add({ name, price, available: true, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-    document.getElementById('menuItemName').value = '';
-    document.getElementById('menuItemPrice').value = '';
+    const batch = db.batch();
+    items.forEach(item => {
+      batch.set(db.collection('menuItems').doc(), { name: item.name, price: item.price, available: true, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    });
+    await batch.commit();
+    document.getElementById('menuItemsBulk').value = '';
+    document.getElementById('bulkStatus').textContent = '';
     loadMenuItems();
-    toast('Item added', 'success');
+    toast(`Added ${items.length} item${items.length !== 1 ? 's' : ''}`, 'success');
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
   }
+});
+
+document.getElementById('clearBulkBtn').addEventListener('click', () => {
+  document.getElementById('menuItemsBulk').value = '';
+  document.getElementById('bulkStatus').textContent = '';
+});
+
+// Live line count feedback
+document.getElementById('menuItemsBulk').addEventListener('input', () => {
+  const lines = document.getElementById('menuItemsBulk').value.split('\n').filter(l => l.trim()).length;
+  document.getElementById('bulkStatus').textContent = lines ? `${lines} item${lines !== 1 ? 's' : ''}` : '';
+});
+
+document.getElementById('clearAllMenuBtn').addEventListener('click', async () => {
+  if (!confirm('Delete ALL menu items?')) return;
+  const snap = await db.collection('menuItems').get();
+  const batch = db.batch();
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+  loadMenuItems();
+  toast('All items deleted', 'info');
 });
 
 window.deleteMenuItem = async function(id) {
@@ -348,6 +390,7 @@ function renderOrders(orders) {
     return `
       <div class="order-card ${isPrepared ? 'prepared' : ''}" id="order-${o.id}">
         <div class="order-card-header">
+          ${o.orderNumber ? `<span style="font-size:22px;font-weight:900;color:var(--primary);min-width:44px">#${o.orderNumber}</span>` : ''}
           <div class="order-customer">${escHtml(o.customerName)}</div>
           <span class="badge ${isPrepared ? 'badge-success' : 'badge-warning'}">${isPrepared ? 'Ready' : 'Pending'}</span>
           <span class="badge badge-primary">${escHtml(sessionLabel)}</span>

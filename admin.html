@@ -160,26 +160,29 @@
       <h2>Menu Items</h2>
     </div>
     <div class="card" style="margin-bottom:20px">
-      <div class="card-header"><h2>Add Item</h2></div>
+      <div class="card-header"><h2>Add Items</h2></div>
       <div class="card-body">
-        <div class="form-row">
-          <div class="form-group" style="flex:2">
-            <label for="menuItemName">Item Name</label>
-            <input type="text" id="menuItemName" class="form-control" placeholder="e.g. Red Wine">
-          </div>
-          <div class="form-group">
-            <label for="menuItemPrice">Price (£)</label>
-            <input type="number" id="menuItemPrice" class="form-control" placeholder="0.00" min="0" step="0.50">
-          </div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">
+          One item per line — <strong>Name, Price</strong>
+        </p>
+        <textarea id="menuItemsBulk" class="form-control" rows="7"
+                  style="font-family:monospace;font-size:14px;resize:vertical"
+                  placeholder="Red Wine, 5.50&#10;White Wine, 5.50&#10;Beer, 4.00&#10;Soft Drink, 2.50&#10;Prosecco, 6.00"></textarea>
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+          <button class="btn btn-primary" id="bulkAddMenuBtn">Add Items</button>
+          <button class="btn btn-secondary" id="clearBulkBtn">Clear</button>
+          <span id="bulkStatus" style="font-size:13px;color:var(--text-muted)"></span>
         </div>
-        <button class="btn btn-primary" id="addMenuItemBtn">Add Item</button>
       </div>
     </div>
     <div class="card">
-      <div class="card-header"><h2>Current Menu</h2></div>
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <h2>Current Menu</h2>
+        <button class="btn btn-danger btn-sm" id="clearAllMenuBtn" style="display:none">Clear All</button>
+      </div>
       <div class="card-body">
         <div class="item-list" id="menuItemsList">
-          <p style="color:var(--text-muted);font-size:14px">No items yet. Add one above.</p>
+          <p style="color:var(--text-muted);font-size:14px">No items yet. Add some above.</p>
         </div>
       </div>
     </div>

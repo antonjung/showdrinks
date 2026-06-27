@@ -87,11 +87,26 @@
 
     .pulse { animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.6; } }
+
+    #updateBanner { display:none; position:fixed; top:0; left:0; right:0; z-index:9999; background:#1e1b4b; color:#fff; padding:10px 16px; align-items:center; justify-content:center; gap:14px; font-size:14px; font-weight:500; }
+    #updateBanner.visible { display:flex; }
+
+    .orders-section-label { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin:0 0 8px; }
+    .orders-section-label.pending-label { color:var(--warning); }
+    .orders-section-label.ready-label   { color:var(--success); }
+
+    .past-toggle { background:none; border:none; font-size:13px; color:var(--primary); font-weight:600; cursor:pointer; padding:4px 0; margin-bottom:10px; }
+    .past-toggle:hover { text-decoration:underline; }
   </style>
 </head>
 <body>
 
-<div class="pwa-body">
+<div id="updateBanner">
+  <span>New version available</span>
+  <button id="updateBtn" class="btn btn-primary btn-sm" style="background:#6366f1">Update now</button>
+</div>
+
+<div class="pwa-body" style="padding-top:env(safe-area-inset-top)">
   <div class="pwa-hero">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
       <path d="M8 22h8M12 22v-4M6 2h12l-1 7H7L6 2zM7 9c0 5 10 5 10 0"/>
@@ -179,6 +194,7 @@
     <div class="screen" id="screen4">
       <div class="status-screen" id="orderStatus">
         <div class="status-icon-wrap pending" id="statusIcon">⏳</div>
+        <div id="confOrderNum" style="font-size:42px;font-weight:900;color:var(--primary);letter-spacing:-1px;margin-bottom:4px"></div>
         <div class="status-title" id="statusTitle">Order Received!</div>
         <div class="status-sub" id="statusSub">We're getting your drinks ready.</div>
 
@@ -188,7 +204,6 @@
         </div>
 
         <div class="info-card" style="text-align:left">
-          <div class="info-row"><span class="info-label">Order Ref</span><span class="info-value" id="confOrderId" style="font-family:monospace;font-size:13px"></span></div>
           <div class="info-row"><span class="info-label">Name</span><span class="info-value" id="confName"></span></div>
           <div class="info-row"><span class="info-label">Date</span><span class="info-value" id="confDate"></span></div>
           <div class="info-row"><span class="info-label">Session</span><span class="info-value" id="confSession"></span></div>
