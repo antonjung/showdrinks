@@ -572,6 +572,22 @@ document.getElementById('filterDate').addEventListener('change', loadOrders);
 document.getElementById('filterSession').addEventListener('change', loadOrders);
 document.getElementById('filterStatus').addEventListener('change', loadOrders);
 
+document.getElementById('clearAllOrdersBtn').addEventListener('click', async () => {
+  if (!confirm('Delete ALL orders? This cannot be undone.')) return;
+  try {
+    let snap = await db.collection('orders').limit(500).get();
+    while (!snap.empty) {
+      const batch = db.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      snap = await db.collection('orders').limit(500).get();
+    }
+    toast('All orders deleted', 'info');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+});
+
 // ── Settings & QR ──────────────────────────────────────────────────────────
 
 async function loadSettings() {

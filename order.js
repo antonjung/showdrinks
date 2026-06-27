@@ -606,7 +606,7 @@ async function placeOrder(paymentMode) {
   };
 
   try {
-    const counterRef = db.collection('counters').doc(state.showDate);
+    const counterRef = db.collection('counters').doc('global');
     const orderRef   = db.collection('orders').doc();
     let orderNumber;
 
