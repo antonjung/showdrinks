@@ -77,6 +77,7 @@ function goTo(step) {
   document.getElementById('screen' + step).classList.add('active');
   // Compact hero on all non-home screens
   body.classList.toggle('sub-screen', step !== 0);
+  body.classList.toggle('pos-screen', step === 2);
   updateStepBar();
   updateBottomBar();
   window.scrollTo(0, 0);
@@ -442,8 +443,7 @@ function renderMenu() {
     ? ` · ${state.editingOrderStatus === 'ready' ? '✅ Ready' : state.editingOrderStatus === 'collected' ? '🎉 Collected' : '⏳ Pending'}`
     : '';
   const numTag = state.editingOrderNumber ? `#${state.editingOrderNumber} · ` : '';
-  document.getElementById('menuSubtitle').textContent =
-    `${numTag}${fmtDate(state.showDate)} · ${state.sessionName}${statusTag}`;
+  document.title = `${numTag}${state.sessionName}${statusTag}`;
   state.posGridStack = ['root'];
   renderPosGrid();
   renderOrderGrid();

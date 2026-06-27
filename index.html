@@ -103,6 +103,14 @@
     .sub-screen .step-bar { padding:6px 0 4px; }
     .sub-screen .pwa-content { padding-top:16px; }
 
+    /* Screen 2 POS mode — hide chrome, fill viewport */
+    .pos-screen .pwa-hero,
+    .pos-screen .step-bar { display:none; }
+    .pos-screen .pwa-content { padding:10px 12px 12px; display:flex; flex-direction:column; height:calc(100vh - env(safe-area-inset-top)); box-sizing:border-box; overflow:hidden; }
+    .pos-screen #screen2 { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .pos-screen .order-grid-pane { height:auto; max-height:120px; flex-shrink:0; }
+    .pos-screen #posGrid { flex:1; overflow-y:auto; padding-bottom:8px; }
+
     /* Category bar */
     .cat-bar { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
     .cat-btn { padding:5px 12px; border:2px solid var(--border); border-radius:999px; background:var(--surface); font-size:12px; font-weight:600; cursor:pointer; transition:all .15s; }
@@ -196,15 +204,8 @@
 
     <!-- Screen 2: Order (also edit/view mode for existing orders) -->
     <div class="screen" id="screen2">
-      <!-- Top half: order grid -->
       <div class="order-grid-pane" id="orderGridPane"></div>
-      <!-- Bottom half: item catalog -->
-      <div class="item-catalog-pane">
-        <div style="display:flex;align-items:center;padding:4px 0 6px;gap:8px">
-          <div style="flex:1;font-size:11px;color:var(--text-muted)" id="menuSubtitle"></div>
-        </div>
-        <div id="posGrid"></div>
-      </div>
+      <div id="posGrid"></div>
     </div>
 
     <!-- Screen 3: Review & Pay -->
