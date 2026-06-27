@@ -289,5 +289,9 @@
 <script src="version.js"></script>
 <script src="firebase-config.js"></script>
 <script src="order.js"></script>
+<script>
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('touchmove', e => { if (e.scale !== undefined && e.scale !== 1) e.preventDefault(); }, { passive: false });
+</script>
 </body>
 </html>
