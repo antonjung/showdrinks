@@ -955,6 +955,92 @@ document.getElementById('posCellModal').addEventListener('click', function(e) {
   if (e.target===this) posCloseCellModal();
 });
 
+// ── POS Test Mode ───────────────────────────────────────────────────────────
+
+let _testStack = [];
+let _testBasket = {};
+
+window.posOpenTest = function() {
+  _testStack = ['root']; _testBasket = {};
+  posRenderTestGrid(); posRenderTestBasket();
+  document.getElementById('posTestModal').style.display = 'flex';
+};
+
+window.posCloseTest = function() {
+  document.getElementById('posTestModal').style.display = 'none';
+};
+
+window.posResetTest = function() {
+  _testStack = ['root']; _testBasket = {};
+  posRenderTestGrid(); posRenderTestBasket();
+};
+
+function posRenderTestGrid() {
+  const gridId = _testStack[_testStack.length - 1];
+  const grid = _posGrids[gridId];
+  const el = document.getElementById('testPosGrid');
+  if (!el) return;
+  if (!grid) { el.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Grid not found.</p>'; return; }
+  const cells = posNormCells(grid.cells);
+  el.innerHTML = cells.map((cell, i) => {
+    if (!cell || cell.type === 'empty') return `<button class="pos-btn empty" disabled></button>`;
+    const style = cell.color
+      ? `background:${cell.color};color:${posIsLight(cell.color)?'#1e293b':'#fff'};border-color:${cell.color};` : '';
+    const icon = {grid:'▶', back:'◀', finish:'✓', item:''}[cell.type] || '';
+    const price = cell.type === 'item' && cell.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
+    return `<button class="pos-btn" style="${style}" onclick="handlePosTestBtn(${i})">
+      ${icon ? `<span class="pb-icon">${icon}</span>` : ''}
+      <span class="pb-lbl">${escHtml(cell.label || '')}</span>
+      ${price ? `<span class="pb-price">${price}</span>` : ''}
+    </button>`;
+  }).join('');
+}
+
+function posRenderTestBasket() {
+  const el = document.getElementById('testBasket');
+  if (!el) return;
+  const items = Object.values(_testBasket);
+  if (!items.length) { el.innerHTML = '<span style="color:var(--text-muted)">Basket empty</span>'; return; }
+  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+  el.innerHTML = items.map(i =>
+    `<div style="display:flex;justify-content:space-between">
+       <span>${i.qty}× ${escHtml(i.name)}</span>
+       <span>${fmtCurrency(i.price * i.qty)}</span>
+     </div>`).join('') +
+    `<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:4px;font-weight:700;display:flex;justify-content:space-between">
+       <span>Total</span><span>${fmtCurrency(total)}</span>
+     </div>`;
+}
+
+window.handlePosTestBtn = function(idx) {
+  const grid = _posGrids[_testStack[_testStack.length - 1]];
+  if (!grid) return;
+  const cell = posNormCells(grid.cells)[idx];
+  if (!cell || cell.type === 'empty') return;
+  if (cell.type === 'item') {
+    const key = cell.label || cell.menuItemId;
+    if (!_testBasket[key]) _testBasket[key] = { name: cell.label, price: cell.menuItemPrice || 0, qty: 0 };
+    _testBasket[key].qty += 1;
+    posRenderTestBasket();
+  } else if (cell.type === 'grid') {
+    if (cell.targetGridId && _posGrids[cell.targetGridId]) {
+      _testStack.push(cell.targetGridId); posRenderTestGrid();
+    }
+  } else if (cell.type === 'back') {
+    if (_testStack.length > 1) { _testStack.pop(); posRenderTestGrid(); }
+    else toast('Back → would return to date/session screen', 'info');
+  } else if (cell.type === 'finish') {
+    const items = Object.values(_testBasket);
+    if (!items.length) { toast('Add items first', 'error'); return; }
+    const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+    toast(`✓ Finish → review screen. Total: ${fmtCurrency(total)}`, 'success');
+  }
+};
+
+document.getElementById('posTestModal').addEventListener('click', function(e) {
+  if (e.target === this) posCloseTest();
+});
+
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
 async function init() {

@@ -252,6 +252,7 @@
   <div id="tab-pos" class="tab-panel">
     <div class="section-header">
       <h2>POS Layout</h2>
+      <button class="btn btn-secondary btn-sm" onclick="posOpenTest()">▶ Test</button>
       <button class="btn btn-primary" id="posSaveBtn">Save Layout</button>
     </div>
     <div class="pos-editor">
@@ -359,6 +360,23 @@
         <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
         <button class="btn btn-primary" id="editSaveBtn">Save</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- POS Test Modal -->
+<div id="posTestModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:360px;margin:20px">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h2>Test POS Grid</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-secondary btn-sm" onclick="posResetTest()">↺ Reset</button>
+        <button onclick="posCloseTest()" style="background:none;border:none;font-size:20px;cursor:pointer;line-height:1">×</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:12px">
+      <div id="testBasket" style="min-height:36px;background:var(--bg);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px"></div>
+      <div id="testPosGrid" class="pos-grid"></div>
     </div>
   </div>
 </div>
