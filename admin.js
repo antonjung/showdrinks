@@ -766,7 +766,7 @@ function posRenderAdminCell(cell, idx) {
   const isEmpty = !cell || cell.type==='empty';
   const bg = (!isEmpty && cell.color)
     ? `background:${cell.color};color:${posIsLight(cell.color)?'#1e293b':'#fff'};border-color:${cell.color};` : '';
-  const icon = {item:'🛒',grid:'▶',back:'◀',finish:'✓',empty:''}[cell?.type||'empty'];
+  const icon = {item:'🛒',grid:'▶',back:'◀',finish:'✓',clear:'✕',plus:'＋',minus:'－',empty:''}[cell?.type||'empty'];
   const label = cell?.label || '';
   const price = cell?.type==='item' && cell?.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
   return `<div class="pos-admin-cell ${isEmpty?'':'filled'}" style="${bg}"
@@ -971,7 +971,7 @@ window.posCloseTest = function() {
 };
 
 window.posResetTest = function() {
-  _testStack = ['root']; _testBasket = {};
+  _testStack = ['root']; _testBasket = {}; _testSelectedKey = null;
   posRenderTestGrid(); posRenderTestBasket();
 };
 
@@ -986,7 +986,7 @@ function posRenderTestGrid() {
     if (!cell || cell.type === 'empty') return `<button class="pos-btn empty" disabled></button>`;
     const style = cell.color
       ? `background:${cell.color};color:${posIsLight(cell.color)?'#1e293b':'#fff'};border-color:${cell.color};` : '';
-    const icon = {grid:'▶', back:'◀', finish:'✓', item:''}[cell.type] || '';
+    const icon = {grid:'▶', back:'◀', finish:'✓', clear:'✕', plus:'＋', minus:'－', item:''}[cell.type] || '';
     const price = cell.type === 'item' && cell.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
     return `<button class="pos-btn" style="${style}" onclick="handlePosTestBtn(${i})">
       ${icon ? `<span class="pb-icon">${icon}</span>` : ''}
@@ -1012,6 +1012,8 @@ function posRenderTestBasket() {
      </div>`;
 }
 
+let _testSelectedKey = null;
+
 window.handlePosTestBtn = function(idx) {
   const grid = _posGrids[_testStack[_testStack.length - 1]];
   if (!grid) return;
@@ -1021,6 +1023,17 @@ window.handlePosTestBtn = function(idx) {
     const key = cell.label || cell.menuItemId;
     if (!_testBasket[key]) _testBasket[key] = { name: cell.label, price: cell.menuItemPrice || 0, qty: 0 };
     _testBasket[key].qty += 1;
+    _testSelectedKey = key;
+    _testStack = ['root']; posRenderTestGrid(); posRenderTestBasket();
+  } else if (cell.type === 'clear') {
+    _testBasket = {}; _testSelectedKey = null; posRenderTestBasket();
+  } else if (cell.type === 'plus') {
+    if (!_testSelectedKey || !_testBasket[_testSelectedKey]) { toast('Select an item first', 'error'); return; }
+    _testBasket[_testSelectedKey].qty += 1; posRenderTestBasket();
+  } else if (cell.type === 'minus') {
+    if (!_testSelectedKey || !_testBasket[_testSelectedKey]) { toast('Select an item first', 'error'); return; }
+    _testBasket[_testSelectedKey].qty -= 1;
+    if (_testBasket[_testSelectedKey].qty <= 0) { delete _testBasket[_testSelectedKey]; _testSelectedKey = null; }
     posRenderTestBasket();
   } else if (cell.type === 'grid') {
     if (cell.targetGridId && _posGrids[cell.targetGridId]) {

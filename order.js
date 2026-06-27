@@ -32,6 +32,7 @@ const state = {
   showConfig: null, sessions: null, menuItems: [], settings: null,
   statusUnsubscribe: null,
   posGrids: {}, posGridStack: [],
+  selectedBasketKey: null,
 };
 
 // ── Utilities ──────────────────────────────────────────────────────────────
@@ -492,8 +493,25 @@ window.handlePosBtn = function(idx) {
     const key = menuItem.name;
     if (!state.basket[key]) state.basket[key] = { name: menuItem.name, price: menuItem.price, quantity: 0 };
     state.basket[key].quantity += 1;
+    state.selectedBasketKey = key;
+    state.posGridStack = ['root'];
+    renderPosGrid();
     renderOrderGrid();
     updateBottomBar();
+  } else if (cell.type === 'clear') {
+    state.basket = {}; state.selectedBasketKey = null;
+    renderOrderGrid(); updateBottomBar();
+  } else if (cell.type === 'plus') {
+    const key = state.selectedBasketKey;
+    if (!key || !state.basket[key]) { toast('Select an item first', 'error'); return; }
+    state.basket[key].quantity += 1;
+    renderOrderGrid(); updateBottomBar();
+  } else if (cell.type === 'minus') {
+    const key = state.selectedBasketKey;
+    if (!key || !state.basket[key]) { toast('Select an item first', 'error'); return; }
+    state.basket[key].quantity -= 1;
+    if (state.basket[key].quantity <= 0) { delete state.basket[key]; state.selectedBasketKey = null; }
+    renderOrderGrid(); updateBottomBar();
   } else if (cell.type === 'grid') {
     if (cell.targetGridId && state.posGrids[cell.targetGridId]) {
       state.posGridStack.push(cell.targetGridId);
@@ -513,9 +531,10 @@ window.handlePosBtn = function(idx) {
 
 function renderOrderGrid() {
   const pane  = document.getElementById('orderGridPane');
-  const items = Object.values(state.basket);
+  const entries = Object.entries(state.basket);
 
-  if (!items.length) {
+  if (!entries.length) {
+    state.selectedBasketKey = null;
     pane.innerHTML = '<div class="og-empty">Your order is empty — tap items below to add</div>';
     return;
   }
@@ -527,18 +546,24 @@ function renderOrderGrid() {
        <span>${fmtCurrency(basketTotal())}</span>
      </div>
      <div class="og-rows">` +
-    items.map(i => {
-      const key = encodeURIComponent(i.name);
-      return `<div class="og-row">
+    entries.map(([key, i]) => {
+      const enc = encodeURIComponent(key);
+      const sel = key === state.selectedBasketKey;
+      return `<div class="og-row ${sel ? 'selected' : ''}" onclick="selectBasketItem('${enc}')">
         <span class="og-qty">${i.quantity}×</span>
         <span>${escHtml(i.name)}</span>
         <span class="og-price">${fmtCurrency(i.price * i.quantity)}</span>
-        <button class="og-trash" onclick="removeFromBasket('${key}')" title="Remove">🗑</button>
+        <button class="og-trash" onclick="event.stopPropagation();removeFromBasket('${enc}')" title="Remove">🗑</button>
       </div>`;
     }).join('') +
     `</div>
      <div class="og-total"><span>Total</span><span>${fmtCurrency(basketTotal())}</span></div>`;
 }
+
+window.selectBasketItem = function(encodedKey) {
+  state.selectedBasketKey = decodeURIComponent(encodedKey);
+  renderOrderGrid();
+};
 
 function renderMenuItems() {
   const grid = document.getElementById('menuGrid');
