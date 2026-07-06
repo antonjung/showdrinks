@@ -528,6 +528,13 @@ function renderReview() {
     const mode = state.settings?.paymentMode || 'bar';
     document.getElementById('payAtBarSection').style.display  = mode === 'bar'   ? '' : 'none';
     document.getElementById('sumupSection').style.display     = mode === 'sumup' ? '' : 'none';
+
+    const barBtn = document.getElementById('payAtBarBtn');
+    barBtn.disabled = false;
+    barBtn.textContent = 'Confirm Order (Pay at Bar)';
+    const onlineBtn = document.getElementById('payOnlineBtn');
+    onlineBtn.disabled = false;
+    onlineBtn.textContent = '💳 Pay Online with SumUp';
   }
 }
 
