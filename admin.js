@@ -1443,6 +1443,60 @@ window.deleteTabMember = async function(id) {
   }
 };
 
+function csvField(v) {
+  const s = String(v ?? '');
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+document.getElementById('exportTabSalesBtn').addEventListener('click', () => {
+  if (!_tabOrders.length) { toast('No sales to export yet', 'error'); return; }
+
+  const header = ['Date', 'Member', 'Items', 'Total', 'Paid'];
+  const sorted = [..._tabOrders].sort((a, b) => {
+    const at = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+    const bt = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+    return at - bt;
+  });
+  const rows = sorted.map(o => [
+    fmtDateTime(o.createdAt),
+    o.memberName || '',
+    (o.items || []).map(i => `${i.quantity}x ${i.name}`).join('; '),
+    (o.totalAmount || 0).toFixed(2),
+    o.paid ? 'Yes' : 'No',
+  ]);
+  const csv = [header, ...rows].map(r => r.map(csvField).join(',')).join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `showdrinks-tab-sales-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+});
+
+async function deleteAllDocs(collectionName) {
+  let snap = await db.collection(collectionName).limit(500).get();
+  while (!snap.empty) {
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    snap = await db.collection(collectionName).limit(500).get();
+  }
+}
+
+document.getElementById('clearAllTabsBtn').addEventListener('click', async () => {
+  if (!confirm('Delete ALL tab members and their sales history? This cannot be undone.')) return;
+  try {
+    await Promise.all([deleteAllDocs('tabMembers'), deleteAllDocs('tabOrders')]);
+    _tabMembers = []; _tabOrders = []; _tabExpandedMemberId = null;
+    renderTabMemberSelect();
+    selectTabMember(null);
+    toast('All tabs cleared', 'info');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+});
+
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
 async function init() {

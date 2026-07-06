@@ -81,7 +81,7 @@ Convert `icons/icon.svg` to `icons/icon-192.png` and `icons/icon-512.png` using 
 | Menu Items | Add drinks with prices |
 | Locations | Add collection points (e.g. "Bar", "Foyer") |
 | Orders | See all orders, mark as ready, assign collection location |
-| Show Tabs | For cast/crew who order drinks and pay later — pick or add a member, add drinks via the POS grid, view what each member has ordered and their running total, mark paid when they settle up |
+| Show Tabs | For cast/crew who order drinks and pay later — pick or add a member, add drinks via the POS grid, view what each member has ordered and their running total, mark paid when they settle up, export all tab sales as CSV |
 | Settings & QR | Set site URL, configure SumUp, generate QR code for customers |
 
 ### Customers (`index.html`)
