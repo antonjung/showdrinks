@@ -218,6 +218,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .tab-member-row { cursor:pointer; transition:border-color .15s, box-shadow .15s; }
 .tab-member-row:hover { border-color:var(--primary); }
 .tab-member-row.active { border-color:var(--primary); background:var(--primary-light); }
+.tab-pos-split { display:flex; gap:16px; align-items:stretch; }
+.tab-pos-buttons { flex:1; min-width:0; max-height:65vh; overflow-y:auto; }
+.tab-pos-order { width:320px; flex-shrink:0; max-height:65vh; overflow-y:auto; display:flex; flex-direction:column; }
 
 .pos-drag-item { padding:6px 8px; border:1px solid var(--border); border-radius:6px; margin-bottom:5px; cursor:grab; font-size:13px; background:var(--bg); display:flex; justify-content:space-between; align-items:center; user-select:none; }
 .pos-drag-item:active { cursor:grabbing; opacity:.7; }
@@ -249,4 +252,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   .form-row { grid-template-columns: 1fr; }
   .orders-toolbar { flex-direction: column; align-items: stretch; }
   .order-card-header { flex-wrap: wrap; }
+  .tab-pos-split { flex-direction: column; }
+  .tab-pos-order { width: 100%; }
 }

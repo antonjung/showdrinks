@@ -330,10 +330,14 @@
             Select a member to add drinks
           </div>
 
-          <div id="tabPosArea" style="display:none">
-            <div id="tabBasket" style="min-height:36px;background:var(--bg);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px"></div>
-            <div id="tabPosGrid"></div>
-            <button class="btn btn-success btn-full" style="margin-top:10px;height:48px;border-radius:12px" id="tabAddToOrderBtn">Add to Tab</button>
+          <div id="tabPosArea" class="tab-pos-split" style="display:none">
+            <div class="tab-pos-buttons">
+              <div id="tabPosGrid"></div>
+            </div>
+            <div class="tab-pos-order">
+              <div id="tabBasket" style="min-height:36px;background:var(--bg);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px"></div>
+              <button class="btn btn-success btn-full" style="margin-top:10px;height:48px;border-radius:12px" id="tabAddToOrderBtn">Add to Tab</button>
+            </div>
           </div>
         </div>
       </div>
