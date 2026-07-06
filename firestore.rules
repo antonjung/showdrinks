@@ -9,6 +9,12 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Shows — multiple shows can exist, only one flagged isCurrent is used by the PWA
+    match /shows/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Menu items — readable by all customers, writable by admin
     match /menuItems/{id} {
       allow read: if true;
