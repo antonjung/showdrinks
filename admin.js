@@ -43,34 +43,139 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 // ── Show & Sessions ────────────────────────────────────────────────────────
 
+const DEFAULT_SESSIONS = {
+  before:   { name: 'Before Show', enabled: true, cutOff: '18:30', cutOffDay: 'same' },
+  interval: { name: 'Interval',    enabled: true, cutOff: '19:00', cutOffDay: 'same' },
+  after:    { name: 'After Show',  enabled: true, cutOff: '21:30', cutOffDay: 'same' },
+};
+
+let _shows = [];
+let _selectedShowId = null;
 let showDates = [];
 
-async function loadShow() {
+async function loadShows() {
   try {
-    const doc = await db.collection('config').doc('show').get();
-    if (doc.exists) {
-      const data = doc.data();
-      document.getElementById('showName').value = data.name || '';
-      document.getElementById('headerShowName').textContent = data.name || 'No show configured';
-      showDates = data.dates || [];
-      renderDates();
+    const snap = await db.collection('shows').get();
+    _shows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.name || '').toLowerCase() < (b.name || '').toLowerCase() ? -1 : 1);
+
+    if (!_shows.find(s => s.id === _selectedShowId)) {
+      const current = _shows.find(s => s.isCurrent);
+      _selectedShowId = (current || _shows[0] || {}).id || null;
     }
 
-    const sesDoc = await db.collection('config').doc('sessions').get();
-    if (sesDoc.exists) {
-      const s = sesDoc.data();
-      ['before','interval','after'].forEach(id => {
-        const d = s[id] || {};
-        document.getElementById(`${id}Name`).value = d.name || '';
-        document.getElementById(`${id}Enabled`).value = d.enabled !== false ? 'true' : 'false';
-        document.getElementById(`${id}CutOff`).value = d.cutOff || '';
-        document.getElementById(`${id}CutOffDay`).value = d.cutOffDay || 'same';
-      });
-    }
+    renderShowsList();
+    renderShowEditor();
+    updateHeaderShowName();
   } catch(e) {
     console.error(e);
-    toast('Could not load show data – check Firebase config', 'error');
+    toast('Could not load shows – check Firebase config', 'error');
   }
+}
+
+function updateHeaderShowName() {
+  const current = _shows.find(s => s.isCurrent);
+  document.getElementById('headerShowName').textContent = current ? (current.name || 'Unnamed show') : 'No current show set';
+}
+
+function renderShowsList() {
+  const el = document.getElementById('showsList');
+  el.innerHTML = _shows.length ? _shows.map(s => `
+    <div class="item-row">
+      <span class="item-name">${escHtml(s.name || '(untitled show)')}${s.isCurrent ? ' <span class="badge badge-success">Current</span>' : ''}</span>
+      <div class="item-actions">
+        <button class="btn btn-secondary btn-sm" onclick="selectShow('${s.id}')">${s.id === _selectedShowId ? 'Editing' : 'Edit'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteShow('${s.id}')">Delete</button>
+      </div>
+    </div>`).join('') : '<p style="color:var(--text-muted);font-size:14px">No shows yet — add one to get started.</p>';
+}
+
+window.selectShow = function(id) {
+  _selectedShowId = id;
+  renderShowsList();
+  renderShowEditor();
+};
+
+window.setCurrentShow = async function() {
+  if (!_selectedShowId) return;
+  try {
+    const batch = db.batch();
+    _shows.forEach(s => batch.update(db.collection('shows').doc(s.id), { isCurrent: s.id === _selectedShowId }));
+    await batch.commit();
+    _shows.forEach(s => { s.isCurrent = s.id === _selectedShowId; });
+    renderShowsList();
+    renderShowEditor();
+    updateHeaderShowName();
+    toast('Current show updated', 'success');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+};
+
+window.deleteShow = async function(id) {
+  const show = _shows.find(s => s.id === id);
+  if (!confirm(`Delete show "${show?.name || 'this show'}"? This cannot be undone.`)) return;
+  try {
+    await db.collection('shows').doc(id).delete();
+    _shows = _shows.filter(s => s.id !== id);
+    if (_selectedShowId === id) _selectedShowId = (_shows[0] || {}).id || null;
+    renderShowsList();
+    renderShowEditor();
+    updateHeaderShowName();
+    toast('Show deleted', 'info');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+};
+
+document.getElementById('addShowBtn').addEventListener('click', async () => {
+  const name = prompt('New show name:');
+  if (!name || !name.trim()) return;
+  try {
+    const doc = {
+      name: name.trim(),
+      dates: [],
+      isCurrent: _shows.length === 0,
+      sessions: DEFAULT_SESSIONS,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    const ref = await db.collection('shows').add(doc);
+    _shows.push({ id: ref.id, ...doc, isCurrent: doc.isCurrent });
+    _selectedShowId = ref.id;
+    renderShowsList();
+    renderShowEditor();
+    updateHeaderShowName();
+    toast('Show added', 'success');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+});
+
+document.getElementById('setCurrentShowBtn').addEventListener('click', setCurrentShow);
+document.getElementById('deleteShowBtn').addEventListener('click', () => { if (_selectedShowId) deleteShow(_selectedShowId); });
+
+function renderShowEditor() {
+  const show = _shows.find(s => s.id === _selectedShowId);
+  const wrap = document.getElementById('showEditorWrap');
+  if (!show) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+
+  document.getElementById('showName').value = show.name || '';
+  showDates = show.dates || [];
+  renderDates();
+
+  const setCurBtn = document.getElementById('setCurrentShowBtn');
+  setCurBtn.disabled = !!show.isCurrent;
+  setCurBtn.textContent = show.isCurrent ? 'Current Show' : 'Set as Current';
+
+  const sessions = show.sessions || {};
+  ['before','interval','after'].forEach(id => {
+    const d = sessions[id] || DEFAULT_SESSIONS[id];
+    document.getElementById(`${id}Name`).value = d.name || '';
+    document.getElementById(`${id}Enabled`).value = d.enabled !== false ? 'true' : 'false';
+    document.getElementById(`${id}CutOff`).value = d.cutOff || '';
+    document.getElementById(`${id}CutOffDay`).value = d.cutOffDay || 'same';
+  });
 }
 
 function renderDates() {
@@ -100,6 +205,7 @@ document.getElementById('addDateBtn').addEventListener('click', () => {
 });
 
 document.getElementById('saveShowBtn').addEventListener('click', async () => {
+  if (!_selectedShowId) { toast('Add or select a show first', 'error'); return; }
   const name = document.getElementById('showName').value.trim();
   if (!name) { toast('Enter a show name', 'error'); return; }
 
@@ -114,11 +220,11 @@ document.getElementById('saveShowBtn').addEventListener('click', async () => {
   });
 
   try {
-    await Promise.all([
-      db.collection('config').doc('show').set({ name, dates: showDates }),
-      db.collection('config').doc('sessions').set(sessions),
-    ]);
-    document.getElementById('headerShowName').textContent = name;
+    await db.collection('shows').doc(_selectedShowId).update({ name, dates: showDates, sessions });
+    const show = _shows.find(s => s.id === _selectedShowId);
+    if (show) { show.name = name; show.dates = showDates; show.sessions = sessions; }
+    renderShowsList();
+    updateHeaderShowName();
     populateDateFilter();
     toast('Show & sessions saved', 'success');
   } catch(e) {
@@ -405,8 +511,8 @@ async function loadLocationsCache() {
 }
 
 async function populateDateFilter() {
-  const doc = await db.collection('config').doc('show').get();
-  const dates = doc.exists ? (doc.data().dates || []) : [];
+  const snap = await db.collection('shows').where('isCurrent', '==', true).limit(1).get();
+  const dates = snap.empty ? [] : (snap.docs[0].data().dates || []);
   const sel = document.getElementById('filterDate');
   const current = sel.value;
   sel.innerHTML = '<option value="">All dates</option>' +
@@ -1065,7 +1171,7 @@ async function init() {
     document.getElementById('headerVersion').textContent = 'v' + APP_VERSION;
   }
   try {
-    await Promise.all([loadShow(), loadMenuItems(), loadLocations(), loadSettings()]);
+    await Promise.all([loadShows(), loadMenuItems(), loadLocations(), loadSettings()]);
   } catch(e) {
     document.getElementById('headerShowName').textContent = 'Firebase not configured';
     toast('Firebase not configured – edit firebase-config.js', 'error');

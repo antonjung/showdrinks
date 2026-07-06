@@ -174,80 +174,27 @@ async function renderHomeScreen() {
 
   state.customerName = savedName;
   const allSaved = getSavedOrders();
-  const todayStr = today();
 
-  // Split into today vs other days
-  const todayOrders = allSaved.filter(o => o.showDate === todayStr);
-  const otherDates  = [...new Set(allSaved.filter(o => o.showDate !== todayStr).map(o => o.showDate))].sort().reverse();
+  const newOrderBtnHtml = `<button class="btn btn-primary btn-full btn-lg"
+             style="height:52px;border-radius:12px;margin:4px 0 16px"
+             onclick="startNewOrder()">+ New Order</button>`;
 
-  homeContent.innerHTML = buildWelcomeCard(savedName) +
+  homeContent.innerHTML = buildWelcomeCard(savedName) + newOrderBtnHtml +
     '<div style="text-align:center;padding:12px 0;color:var(--text-muted);font-size:13px">Loading orders…</div>';
 
-  // Fetch live statuses for today's orders only (fast)
-  const todayDocs = await Promise.all(
-    todayOrders.map(o => db.collection('orders').doc(o.id).get().catch(() => null))
+  const docs = await Promise.all(
+    allSaved.map(o => db.collection('orders').doc(o.id).get().catch(() => null))
   );
-  const todayEnriched = todayDocs.map((doc, i) => {
+  const enriched = docs.map((doc, i) => {
     if (!doc || !doc.exists) return null;
-    return { ...todayOrders[i], ...doc.data(), id: doc.id };
-  }).filter(Boolean);
+    return { ...allSaved[i], ...doc.data(), id: doc.id };
+  }).filter(Boolean).sort((a, b) => (b.orderNumber || 0) - (a.orderNumber || 0));
 
-  const openOrders      = todayEnriched.filter(o => o.prepStatus === 'pending');
-  const doneOrders      = todayEnriched.filter(o => o.prepStatus === 'ready');
-  const collectedOrders = todayEnriched.filter(o => o.prepStatus === 'collected');
+  const ordersSection = enriched.length
+    ? `<div class="section-label" style="margin-bottom:6px">Your orders</div>${enriched.map(orderCard).join('')}`
+    : '<p style="font-size:13px;color:var(--text-muted)">No orders yet.</p>';
 
-  const openSection = openOrders.length ? `
-    <div style="margin-bottom:14px">
-      <div class="orders-section-label pending-label">⏳ Open orders – today</div>
-      ${openOrders.map(orderCard).join('')}
-    </div>` : '';
-
-  const doneSection = doneOrders.length ? `
-    <div style="margin-bottom:14px">
-      <div class="orders-section-label ready-label">✓ Ready to collect</div>
-      ${doneOrders.map(orderCard).join('')}
-    </div>` : '';
-
-  const collectedSection = collectedOrders.length ? `
-    <div style="margin-bottom:14px">
-      <button class="past-toggle" onclick="toggleCollected(this)" style="font-size:12px;color:var(--text-muted)">
-        Show ${collectedOrders.length} collected order${collectedOrders.length !== 1 ? 's' : ''} ▾
-      </button>
-      <div class="collected-list" style="display:none">
-        ${collectedOrders.map(orderCard).join('')}
-      </div>
-    </div>` : '';
-
-  const noToday = !openOrders.length && !doneOrders.length && !collectedOrders.length && todayOrders.length
-    ? '<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">No active orders for today.</p>'
-    : '';
-
-  // Other days dropdown
-  const otherSection = otherDates.length ? `
-    <div class="other-days-wrap">
-      <div class="section-label" style="margin-bottom:6px">Other days</div>
-      <select class="form-control" id="otherDaySelect" onchange="showOtherDay(this.value)" style="max-width:220px">
-        <option value="">Select date…</option>
-        ${otherDates.map(d => `<option value="${d}">${fmtDate(d)}</option>`).join('')}
-      </select>
-      <div id="otherDayOrders" style="margin-top:10px"></div>
-    </div>` : '';
-
-  homeContent.innerHTML =
-    buildWelcomeCard(savedName) +
-    openSection + doneSection + collectedSection + noToday +
-    `<button class="btn btn-primary btn-full btn-lg"
-             style="height:52px;border-radius:12px;margin:4px 0 16px"
-             onclick="startNewOrder()">+ New Order</button>` +
-    otherSection +
-    `<div style="padding-top:16px;border-top:1px solid var(--border);margin-top:4px">
-       <div class="section-label">Look up an order</div>
-       <div style="display:flex;gap:8px">
-         <input type="number" id="checkOrderNum" class="form-control"
-                placeholder="Order number" min="1" style="max-width:140px">
-         <button class="btn btn-secondary" onclick="checkOrderByNumber()">Find</button>
-       </div>
-     </div>`;
+  homeContent.innerHTML = buildWelcomeCard(savedName) + newOrderBtnHtml + ordersSection;
 }
 
 function buildWelcomeCard(name) {
@@ -278,15 +225,6 @@ function orderCard(o) {
   </div>`;
 }
 
-window.toggleCollected = function(btn) {
-  const list = btn.nextElementSibling;
-  const visible = list.style.display !== 'none';
-  list.style.display = visible ? 'none' : '';
-  btn.textContent = visible
-    ? btn.textContent.replace('▴', '▾')
-    : btn.textContent.replace('▾', '▴');
-};
-
 function renderNameForm(container) {
   container.innerHTML = `
     <div class="name-input-wrap">
@@ -302,14 +240,6 @@ function renderNameForm(container) {
       <button class="btn btn-primary btn-full btn-lg"
               style="height:52px;border-radius:12px;margin-top:8px"
               onclick="submitName()">Continue →</button>
-      <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border)">
-        <div class="section-label">Already ordered?</div>
-        <div style="display:flex;gap:8px">
-          <input type="number" id="checkOrderNum" class="form-control"
-                 placeholder="Order number" min="1" style="max-width:140px">
-          <button class="btn btn-secondary" onclick="checkOrderByNumber()">Find</button>
-        </div>
-      </div>
     </div>`;
   setTimeout(() => {
     const el = document.getElementById('customerName');
@@ -361,43 +291,29 @@ window.viewOrder = async function(orderId) {
   } catch(e) { toast('Error: ' + e.message, 'error'); }
 };
 
-window.showOtherDay = async function(date) {
-  if (!date) return;
-  const container = document.getElementById('otherDayOrders');
-  container.innerHTML = '<p style="font-size:13px;color:var(--text-muted)">Loading…</p>';
-  const saved = getSavedOrders().filter(o => o.showDate === date);
-  const docs  = await Promise.all(saved.map(o => db.collection('orders').doc(o.id).get().catch(() => null)));
-  const enriched = docs.map((doc, i) => {
-    if (!doc || !doc.exists) return null;
-    return { ...saved[i], ...doc.data(), id: doc.id };
-  }).filter(Boolean);
-  container.innerHTML = enriched.length
-    ? enriched.map(orderCard).join('')
-    : '<p style="font-size:13px;color:var(--text-muted)">No orders found for this date.</p>';
-};
-
-window.checkOrderByNumber = async function() {
-  const input = document.getElementById('checkOrderNum');
-  const num   = input ? parseInt(input.value, 10) : NaN;
-  if (!num || num < 1) { toast('Enter an order number', 'error'); return; }
-  try {
-    const snap = await db.collection('orders')
-      .where('orderNumber', '==', num)
-      .orderBy('createdAt', 'desc')
-      .limit(5)
-      .get();
-    if (snap.empty) { toast('Order #' + num + ' not found', 'error'); return; }
-    window.viewOrder(snap.docs[0].id);
-  } catch(e) { toast('Error: ' + e.message, 'error'); }
-};
-
 // ── Screen 1: Date & Session ───────────────────────────────────────────────
 
 function renderDateSession() {
   const todayStr = today();
+  const hasDates = !!(state.showConfig?.dates || []).length;
+  const dateSel  = document.getElementById('dateSelector');
+  const dateLbl  = document.getElementById('dateSectionLabel');
+
+  if (!hasDates) {
+    // No dates configured for this show — skip date selection, cut-off times alone govern availability.
+    state.showDate = todayStr;
+    dateLbl.style.display = 'none';
+    dateSel.style.display = 'none';
+    dateSel.innerHTML = '';
+    renderSessionSelector();
+    return;
+  }
+
+  dateLbl.style.display = '';
+  dateSel.style.display = '';
+
   // Only show dates that are today or future
-  const dates = (state.showConfig?.dates || []).filter(d => d >= todayStr);
-  const dateSel = document.getElementById('dateSelector');
+  const dates = state.showConfig.dates.filter(d => d >= todayStr);
 
   dateSel.innerHTML = dates.length
     ? dates.map(d => `<button class="selector-btn ${d === state.showDate ? 'selected' : ''}"
@@ -416,15 +332,23 @@ window.selectDate = function(date) {
 function renderSessionSelector() {
   const sesDiv   = document.getElementById('sessionSelector');
   const sessions = state.sessions || {};
+  const hasDates = !!(state.showConfig?.dates || []).length;
   const now = new Date();
 
   const items = ['before','interval','after'].map(id => {
     const s = sessions[id] || {};
     if (!s.enabled) return null;
     let cutOffPassed = false;
-    if (state.showDate && s.cutOff) {
-      const d = s.cutOffDay === 'prev' ? subtractDay(state.showDate) : state.showDate;
-      cutOffPassed = now > new Date(d + 'T' + s.cutOff + ':00');
+    if (s.cutOff) {
+      if (hasDates) {
+        if (state.showDate) {
+          const d = s.cutOffDay === 'prev' ? subtractDay(state.showDate) : state.showDate;
+          cutOffPassed = now > new Date(d + 'T' + s.cutOff + ':00');
+        }
+      } else {
+        // No dates configured — cut-off recurs daily against today's clock time only.
+        cutOffPassed = now > new Date(today() + 'T' + s.cutOff + ':00');
+      }
     }
     return { id, name: s.name || id, cutOffPassed, cutOff: s.cutOff };
   }).filter(Boolean);
@@ -849,20 +773,22 @@ async function init() {
   }
 
   try {
-    const [showDoc, sesDoc, menuSnap, settingsDoc, posSnap] = await Promise.all([
-      db.collection('config').doc('show').get(),
-      db.collection('config').doc('sessions').get(),
+    const [showSnap, menuSnap, settingsDoc, posSnap] = await Promise.all([
+      db.collection('shows').where('isCurrent', '==', true).limit(1).get(),
       db.collection('menuItems').orderBy('name').get(),
       db.collection('config').doc('settings').get(),
       db.collection('posGrids').get(),
     ]);
 
-    state.showConfig = showDoc.exists     ? showDoc.data()     : {};
-    state.sessions   = sesDoc.exists      ? sesDoc.data()      : {};
+    const currentShow = showSnap.empty ? null : showSnap.docs[0].data();
+    state.showConfig = currentShow || {};
+    state.sessions   = currentShow?.sessions || {};
     state.menuItems  = menuSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     state.settings   = settingsDoc.exists ? settingsDoc.data() : {};
     state.posGrids   = {};
     posSnap.docs.forEach(d => { state.posGrids[d.id] = { id: d.id, ...d.data() }; });
+
+    if (!currentShow) toast('No show is currently active', 'error');
 
     const showName = state.showConfig.name || 'ShowDrinks';
     document.getElementById('heroShowName').textContent = showName;

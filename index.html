@@ -91,10 +91,6 @@
     #updateBanner { display:none; position:fixed; top:0; left:0; right:0; z-index:9999; background:#1e1b4b; color:#fff; padding:10px 16px; align-items:center; justify-content:center; gap:14px; font-size:14px; font-weight:500; }
     #updateBanner.visible { display:flex; }
 
-    .orders-section-label { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin:0 0 8px; }
-    .orders-section-label.pending-label { color:var(--warning); }
-    .orders-section-label.ready-label   { color:var(--success); }
-
     /* Compact hero on sub-screens */
     .sub-screen .pwa-hero { padding:8px 20px 4px; display:flex; align-items:center; gap:10px; text-align:left; }
     .sub-screen .pwa-hero svg { display:none; }
@@ -157,9 +153,6 @@
     .screen-h:first-child { margin-top:0; }
     .screen-sub { font-size:12px; color:var(--text-muted); margin-bottom:10px; }
 
-    /* Other days dropdown */
-    .other-days-wrap { margin-top:12px; }
-
     /* Collected order state */
     .past-order-card.collected { opacity:.55; border-color:var(--border); }
     .status-icon-wrap.collected { background:#f1f5f9; }
@@ -198,7 +191,7 @@
 
     <!-- Screen 1: Date & Session -->
     <div class="screen" id="screen1">
-      <div class="screen-h">Date</div>
+      <div class="screen-h" id="dateSectionLabel">Date</div>
       <div class="selector-grid" id="dateSelector"></div>
       <div class="screen-h">Session</div>
       <div id="sessionSelector"></div>

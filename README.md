@@ -21,6 +21,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if true; // Tighten this with Firebase Auth for production
     }
+    // Shows - multiple shows can exist, only one flagged isCurrent is used by the PWA
+    match /shows/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
     // Menu items - read by all, write restricted
     match /menuItems/{id} {
       allow read: if true;
@@ -62,7 +67,7 @@ Convert `icons/icon.svg` to `icons/icon-192.png` and `icons/icon-512.png` using 
 
 | Tab | What to do |
 |-----|-----------|
-| Show & Sessions | Enter show name, add dates, configure before/interval/after sessions and cut-off times |
+| Show & Sessions | Add one or more shows, mark one as **Current** (used by the PWA), add dates (optional), configure before/interval/after sessions and cut-off times |
 | Menu Items | Add drinks with prices |
 | Locations | Add collection points (e.g. "Bar", "Foyer") |
 | Orders | See all orders, mark as ready, assign collection location |
