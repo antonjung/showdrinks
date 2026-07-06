@@ -216,8 +216,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .pos-grid-list-item.active { background:var(--primary); color:#fff; }
 /* ── Show Tabs split layout ── */
 .tabs-layout { display:flex; gap:16px; align-items:flex-start; }
-.tabs-sidebar { width:440px; flex-shrink:0; display:flex; flex-direction:column; gap:16px; }
-.tabs-main-panel { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; min-height:400px; }
+.tabs-sidebar { flex:1; min-width:0; display:flex; flex-direction:column; gap:16px; }
+.tabs-main-panel { flex:1; min-width:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; min-height:400px; }
 .tab-member-row { cursor:pointer; transition:border-color .15s, box-shadow .15s; }
 .tab-member-row:hover { border-color:var(--primary); }
 .tab-member-row.active { border-color:var(--primary); background:var(--primary-light); }
