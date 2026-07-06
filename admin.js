@@ -1200,36 +1200,30 @@ async function loadShowTabs() {
 async function loadTabMembers() {
   const snap = await db.collection('tabMembers').orderBy('name').get();
   _tabMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  renderTabMemberSelect();
   renderTabMembersList();
-}
-
-function renderTabMemberSelect() {
-  const sel = document.getElementById('tabMemberSelect');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">— choose a member —</option>' +
-    _tabMembers.map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
-  sel.value = _tabMembers.find(m => m.id === current) ? current : (_tabSelectedMemberId || '');
 }
 
 window.selectTabMember = function(id) {
   _tabSelectedMemberId = id || null;
   _tabStack = ['root']; _tabBasket = {}; _tabSelectedKey = null;
-  document.getElementById('tabMemberSelect').value = id || '';
 
   const banner = document.getElementById('tabActiveMemberBanner');
   const posArea = document.getElementById('tabPosArea');
   const member = _tabMembers.find(m => m.id === _tabSelectedMemberId);
   if (member) {
-    banner.style.display = '';
+    banner.style.background = 'var(--primary-light)';
+    banner.style.color = 'var(--primary)';
     banner.textContent = `Adding drinks for: ${member.name}`;
     posArea.style.display = '';
     renderTabGrid();
     renderTabBasket();
   } else {
-    banner.style.display = 'none';
+    banner.style.background = 'var(--bg)';
+    banner.style.color = 'var(--text-muted)';
+    banner.textContent = 'Select a member on the left to add drinks';
     posArea.style.display = 'none';
   }
+  renderTabMembersList();
 };
 
 document.getElementById('addTabMemberBtn').addEventListener('click', async () => {
@@ -1244,7 +1238,6 @@ document.getElementById('addTabMemberBtn').addEventListener('click', async () =>
     });
     _tabMembers.push({ id: ref.id, name });
     _tabMembers.sort((a, b) => a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1);
-    renderTabMemberSelect();
     selectTabMember(ref.id);
     input.value = '';
     toast('Member added', 'success');
@@ -1348,6 +1341,18 @@ async function commitTabOrder() {
 
 let _tabExpandedMemberId = null;
 
+function fmtDateTime(ts) {
+  if (!ts || typeof ts.toDate !== 'function') return '';
+  const d = ts.toDate();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12 || 12;
+  return `${dd} ${mon} ${h}:${m}${ampm}`;
+}
+
 function renderTabMembersList() {
   const el = document.getElementById('tabMembersList');
   if (!_tabMembers.length) { el.innerHTML = '<p style="color:var(--text-muted);font-size:14px">No tab members yet.</p>'; return; }
@@ -1357,9 +1362,11 @@ function renderTabMembersList() {
     const total   = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
     const unpaid  = orders.filter(o => !o.paid).reduce((s, o) => s + (o.totalAmount || 0), 0);
     const expanded = _tabExpandedMemberId === m.id;
+    const isActive = _tabSelectedMemberId === m.id;
     const ordersHtml = expanded ? orders.map(o => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:13px">
         <div>
+          <div style="font-size:11px;color:var(--text-muted)">${fmtDateTime(o.createdAt)}</div>
           ${(o.items || []).map(i => `${i.quantity}× ${escHtml(i.name)}`).join(', ')}
           <span style="color:var(--text-muted)">${o.paid ? '· paid' : '· unpaid'}</span>
         </div>
@@ -1368,14 +1375,15 @@ function renderTabMembersList() {
       : '';
 
     return `
-      <div class="item-row" style="flex-direction:column;align-items:stretch">
+      <div class="item-row tab-member-row ${isActive ? 'active' : ''}" style="flex-direction:column;align-items:stretch"
+           onclick="selectTabMember('${m.id}')">
         <div style="display:flex;align-items:center;gap:12px;width:100%">
           <span class="item-name">${escHtml(m.name)}</span>
           <span style="font-size:13px;color:var(--text-muted)">Total ${fmtCurrency(total)}</span>
           ${unpaid > 0
             ? `<span class="badge badge-warning">Owes ${fmtCurrency(unpaid)}</span>`
             : `<span class="badge badge-success">Settled</span>`}
-          <div class="item-actions" style="margin-left:auto">
+          <div class="item-actions" style="margin-left:auto" onclick="event.stopPropagation()">
             <button class="btn btn-secondary btn-sm" onclick="toggleTabMemberOrders('${m.id}')">${expanded ? 'Hide' : 'View'} Orders</button>
             ${unpaid > 0 ? `<button class="btn btn-primary btn-sm" onclick="markMemberPaid('${m.id}')">Mark Paid</button>` : ''}
             <button class="btn btn-danger btn-sm" onclick="deleteTabMember('${m.id}')">Delete</button>
@@ -1417,7 +1425,6 @@ window.deleteTabMember = async function(id) {
     await db.collection('tabMembers').doc(id).delete();
     _tabMembers = _tabMembers.filter(m => m.id !== id);
     if (_tabSelectedMemberId === id) selectTabMember(null);
-    renderTabMemberSelect();
     renderTabMembersList();
     toast('Member removed', 'info');
   } catch(e) {
