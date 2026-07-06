@@ -162,13 +162,10 @@ document.getElementById('nextBtn').addEventListener('click', async () => {
 
 function getAvailableSessions() {
   const sessions = state.sessions || {};
-  const now = new Date();
   return ['before','interval','after'].map(id => {
     const s = sessions[id] || {};
     if (!s.enabled) return null;
-    // Cut-off recurs daily against today's clock time — no date selection in the PWA.
-    const cutOffPassed = !!(s.cutOff && now > new Date(today() + 'T' + s.cutOff + ':00'));
-    return { id, name: s.name || id, cutOffPassed, cutOff: s.cutOff };
+    return { id, name: s.name || id };
   }).filter(Boolean);
 }
 
@@ -176,10 +173,8 @@ function sessionButtonsHtml() {
   const items = getAvailableSessions();
   if (!items.length) return '<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">No sessions available.</p>';
   return '<div class="session-btn-grid">' + items.map(s => `
-    <button class="selector-btn ${s.cutOffPassed ? 'unavailable' : ''}"
-            ${s.cutOffPassed ? 'disabled' : `onclick="startSessionOrder('${s.id}','${escHtml(s.name)}')"`}>
+    <button class="selector-btn" onclick="startSessionOrder('${s.id}','${escHtml(s.name)}')">
       ${escHtml(s.name)}
-      ${s.cutOff ? `<span class="sub">${s.cutOffPassed ? 'Ordering closed' : 'Order by ' + s.cutOff}</span>` : ''}
     </button>`).join('') + '</div>';
 }
 

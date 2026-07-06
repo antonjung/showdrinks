@@ -77,7 +77,7 @@ Convert `icons/icon.svg` to `icons/icon-192.png` and `icons/icon-512.png` using 
 
 | Tab | What to do |
 |-----|-----------|
-| Show & Sessions | Add one or more shows, mark one as **Current** (used by the PWA), add dates (optional), configure before/interval/after sessions and cut-off times |
+| Show & Sessions | Add one or more shows, mark one as **Current** (used by the PWA), add dates (optional), configure before/interval/after sessions |
 | Menu Items | Add drinks with prices |
 | Locations | Add collection points (e.g. "Bar", "Foyer") |
 | Orders | See all orders, mark as ready, assign collection location |

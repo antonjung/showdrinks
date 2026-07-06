@@ -45,9 +45,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // ── Show & Sessions ────────────────────────────────────────────────────────
 
 const DEFAULT_SESSIONS = {
-  before:   { name: 'Before Show', enabled: true, cutOff: '18:30', cutOffDay: 'same' },
-  interval: { name: 'Interval',    enabled: true, cutOff: '19:00', cutOffDay: 'same' },
-  after:    { name: 'After Show',  enabled: true, cutOff: '21:30', cutOffDay: 'same' },
+  before:   { name: 'Before Show', enabled: true },
+  interval: { name: 'Interval',    enabled: true },
+  after:    { name: 'After Show',  enabled: true },
 };
 
 let _shows = [];
@@ -178,8 +178,6 @@ function renderShowEditor() {
     const d = sessions[id] || DEFAULT_SESSIONS[id];
     document.getElementById(`${id}Name`).value = d.name || '';
     document.getElementById(`${id}Enabled`).value = d.enabled !== false ? 'true' : 'false';
-    document.getElementById(`${id}CutOff`).value = d.cutOff || '';
-    document.getElementById(`${id}CutOffDay`).value = d.cutOffDay || 'same';
   });
 }
 
@@ -219,8 +217,6 @@ document.getElementById('saveShowBtn').addEventListener('click', async () => {
     sessions[id] = {
       name: document.getElementById(`${id}Name`).value.trim(),
       enabled: document.getElementById(`${id}Enabled`).value === 'true',
-      cutOff: document.getElementById(`${id}CutOff`).value,
-      cutOffDay: document.getElementById(`${id}CutOffDay`).value,
     };
   });
 
@@ -1384,7 +1380,7 @@ function renderTabMembersList() {
       : '';
 
     return `
-      <div class="item-row tab-member-row ${isActive ? 'active' : ''}" style="flex-direction:column;align-items:stretch"
+      <div class="item-row tab-member-row ${isActive ? 'active' : ''}" style="flex-direction:column;align-items:stretch;gap:8px"
            onclick="selectTabMember('${m.id}')">
         <div style="display:flex;align-items:center;gap:12px;width:100%">
           <span class="item-name">${escHtml(m.name)}</span>
@@ -1392,11 +1388,11 @@ function renderTabMembersList() {
           ${unpaid > 0
             ? `<span class="badge badge-warning">Owes ${fmtCurrency(unpaid)}</span>`
             : `<span class="badge badge-success">Settled</span>`}
-          <div class="item-actions" style="margin-left:auto" onclick="event.stopPropagation()">
-            <button class="btn btn-secondary btn-sm" onclick="toggleTabMemberOrders('${m.id}')">${expanded ? 'Hide' : 'View'} Orders</button>
-            ${unpaid > 0 ? `<button class="btn btn-primary btn-sm" onclick="markMemberPaid('${m.id}')">Mark Paid</button>` : ''}
-            <button class="btn btn-danger btn-sm" onclick="deleteTabMember('${m.id}')">Delete</button>
-          </div>
+        </div>
+        <div class="item-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-secondary btn-sm" onclick="toggleTabMemberOrders('${m.id}')">${expanded ? 'Hide' : 'View'} Orders</button>
+          ${unpaid > 0 ? `<button class="btn btn-primary btn-sm" onclick="markMemberPaid('${m.id}')">Mark Paid</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteTabMember('${m.id}')">Delete</button>
         </div>
         ${ordersHtml}
       </div>`;

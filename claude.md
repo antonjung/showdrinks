@@ -9,7 +9,6 @@ a system to manage the pre purchasing of drinks for before, during and after a s
 * set up sessions - eg , before, interval and after the show
 * set up the places where drinks can be found once prepared.
 * set up the details for sumup account so the pwa can make payment
-* set a cut off time/date  for ordering for each "session" 
 
 * review the drinks ordered for the valid days and sessions as a tick list
 * mark drinks as prepared and where they can be found as a drop down
