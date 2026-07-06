@@ -1334,8 +1334,6 @@ window.handleTabPosBtn = function(idx) {
   }
 };
 
-document.getElementById('tabAddToOrderBtn').addEventListener('click', commitTabOrder);
-
 async function commitTabOrder() {
   if (!_tabSelectedMemberId) { toast('Select a member first', 'error'); return; }
   const items = Object.values(_tabBasket).map(i => ({ name: i.name, price: i.price, quantity: i.qty }));
