@@ -268,9 +268,12 @@
         <button class="cat-filter-btn active" data-subtab="pos" onclick="selectTabsSubtab('pos')">Point of Sale</button>
         <button class="cat-filter-btn" data-subtab="members" onclick="selectTabsSubtab('members')">Members &amp; Totals</button>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary btn-sm" id="exportTabSalesBtn">⬇ Export Sales (CSV)</button>
-        <button class="btn btn-danger btn-sm" id="clearAllTabsBtn">Clear Sales History</button>
+      <div style="position:relative">
+        <button class="btn btn-secondary btn-sm" onclick="toggleTabsMenu(event)">⋯</button>
+        <div id="tabsMenuDropdown" class="dropdown-menu" style="display:none">
+          <button class="btn btn-secondary btn-sm" id="exportTabSalesBtn">⬇ Export Sales (CSV)</button>
+          <button class="btn btn-danger btn-sm" id="clearAllTabsBtn">Clear Sales History</button>
+        </div>
       </div>
     </div>
 
@@ -299,8 +302,9 @@
       <div class="card" style="margin-bottom:20px">
         <div class="card-header"><h2>Add Member</h2></div>
         <div class="card-body">
-          <div style="display:flex;gap:8px;max-width:480px">
+          <div style="display:flex;gap:8px;max-width:640px">
             <input type="text" id="newTabMemberName" class="form-control" placeholder="Cast/crew member name">
+            <input type="email" id="newTabMemberEmail" class="form-control" placeholder="Email (optional)">
             <button class="btn btn-primary" id="addTabMemberBtn">Add</button>
           </div>
         </div>
@@ -392,6 +396,25 @@
           SumUp online checkout requires a server-side function (Firebase Cloud Function) to create checkouts securely.
           See README for setup instructions.
         </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><h2>Show Tabs Email Template</h2></div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+          Used by the ✉ button on a Show Tabs member's card. Placeholders:
+          <code>[name]</code>, <code>[drinks]</code> (their unpaid items), <code>[total]</code> (amount owed).
+        </p>
+        <div class="form-group">
+          <label for="emailTemplateSubject">Subject</label>
+          <input type="text" id="emailTemplateSubject" class="form-control" placeholder="Your ShowDrinks tab">
+        </div>
+        <div class="form-group">
+          <label for="emailTemplateBody">Body</label>
+          <textarea id="emailTemplateBody" class="form-control" rows="6"
+            placeholder="Hi [name],&#10;&#10;You have an outstanding drinks tab of [total]:&#10;[drinks]&#10;&#10;Please settle up when you get a chance. Thanks!"></textarea>
+        </div>
       </div>
     </div>
 

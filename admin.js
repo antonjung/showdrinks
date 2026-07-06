@@ -706,16 +706,19 @@ document.getElementById('clearAllOrdersBtn').addEventListener('click', async () 
 
 // ── Settings & QR ──────────────────────────────────────────────────────────
 
+let _systemSettings = {};
+
 async function loadSettings() {
   try {
     const doc = await db.collection('config').doc('settings').get();
-    if (doc.exists) {
-      const d = doc.data();
-      document.getElementById('siteUrl').value = d.siteUrl || '';
-      document.getElementById('sumupMerchantCode').value = d.sumupMerchantCode || '';
-      document.getElementById('sumupApiKey').value = d.sumupApiKey || '';
-      document.getElementById('paymentMode').value = d.paymentMode || 'bar';
-    }
+    _systemSettings = doc.exists ? doc.data() : {};
+    const d = _systemSettings;
+    document.getElementById('siteUrl').value = d.siteUrl || '';
+    document.getElementById('sumupMerchantCode').value = d.sumupMerchantCode || '';
+    document.getElementById('sumupApiKey').value = d.sumupApiKey || '';
+    document.getElementById('paymentMode').value = d.paymentMode || 'bar';
+    document.getElementById('emailTemplateSubject').value = d.emailTemplateSubject || '';
+    document.getElementById('emailTemplateBody').value = d.emailTemplateBody || '';
   } catch(e) {
     console.error(e);
   }
@@ -727,9 +730,12 @@ document.getElementById('saveSettingsBtn').addEventListener('click', async () =>
     sumupMerchantCode: document.getElementById('sumupMerchantCode').value.trim(),
     sumupApiKey: document.getElementById('sumupApiKey').value.trim(),
     paymentMode: document.getElementById('paymentMode').value,
+    emailTemplateSubject: document.getElementById('emailTemplateSubject').value.trim(),
+    emailTemplateBody: document.getElementById('emailTemplateBody').value,
   };
   try {
     await db.collection('config').doc('settings').set(settings);
+    _systemSettings = settings;
     toast('Settings saved', 'success');
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
@@ -1234,19 +1240,21 @@ window.selectTabMember = function(id) {
 
 document.getElementById('addTabMemberBtn').addEventListener('click', async () => {
   const input = document.getElementById('newTabMemberName');
+  const emailInput = document.getElementById('newTabMemberEmail');
   const name = input.value.trim();
+  const email = emailInput.value.trim();
   if (!name) { toast('Enter a member name', 'error'); return; }
   const dupe = _tabMembers.find(m => m.name.toLowerCase() === name.toLowerCase());
-  if (dupe) { selectTabMember(dupe.id); input.value = ''; return; }
+  if (dupe) { selectTabMember(dupe.id); input.value = ''; emailInput.value = ''; return; }
   try {
     const ref = await db.collection('tabMembers').add({
-      name, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      name, email, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
-    _tabMembers.push({ id: ref.id, name });
+    _tabMembers.push({ id: ref.id, name, email });
     _tabMembers.sort((a, b) => a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1);
     renderTabMemberSelect();
     selectTabMember(ref.id);
-    input.value = '';
+    input.value = ''; emailInput.value = '';
     toast('Member added', 'success');
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
@@ -1382,17 +1390,21 @@ function renderTabMembersList() {
     return `
       <div class="item-row tab-member-row ${isActive ? 'active' : ''}" style="flex-direction:column;align-items:stretch;gap:8px"
            onclick="selectTabMember('${m.id}')">
-        <div style="display:flex;align-items:center;gap:12px;width:100%">
+        <button class="card-corner-btn" title="Delete" onclick="event.stopPropagation();deleteTabMember('${m.id}')">×</button>
+        <div style="display:flex;align-items:center;gap:12px;width:100%;padding-right:24px">
           <span class="item-name">${escHtml(m.name)}</span>
           <span style="font-size:13px;color:var(--text-muted)">Total ${fmtCurrency(total)}</span>
           ${unpaid > 0
             ? `<span class="badge badge-warning">Owes ${fmtCurrency(unpaid)}</span>`
             : `<span class="badge badge-success">Settled</span>`}
         </div>
+        <div style="font-size:12px;color:var(--text-muted)" onclick="event.stopPropagation();promptEditMemberEmail('${m.id}')">
+          ${m.email ? `✉ ${escHtml(m.email)}` : '+ Add email'}
+        </div>
         <div class="item-actions" onclick="event.stopPropagation()">
           <button class="btn btn-secondary btn-sm" onclick="toggleTabMemberOrders('${m.id}')">${expanded ? 'Hide' : 'View'} Orders</button>
           ${unpaid > 0 ? `<button class="btn btn-primary btn-sm" onclick="markMemberPaid('${m.id}')">Mark Paid</button>` : ''}
-          <button class="btn btn-danger btn-sm" onclick="deleteTabMember('${m.id}')">Delete</button>
+          ${m.email ? `<button class="btn btn-secondary btn-sm" onclick="sendMemberEmail('${m.id}')">✉ Email</button>` : ''}
         </div>
         ${ordersHtml}
       </div>`;
@@ -1437,6 +1449,61 @@ window.deleteTabMember = async function(id) {
     toast('Failed: ' + e.message, 'error');
   }
 };
+
+window.promptEditMemberEmail = async function(id) {
+  const member = _tabMembers.find(m => m.id === id);
+  if (!member) return;
+  const email = prompt(`Email address for ${member.name}:`, member.email || '');
+  if (email === null) return;
+  try {
+    await db.collection('tabMembers').doc(id).update({ email: email.trim() });
+    member.email = email.trim();
+    renderTabMembersList();
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+};
+
+const DEFAULT_EMAIL_TEMPLATE_BODY =
+  'Hi [name],\n\nYou have an outstanding drinks tab of [total]:\n[drinks]\n\nPlease settle up when you get a chance. Thanks!';
+const DEFAULT_EMAIL_TEMPLATE_SUBJECT = 'Your ShowDrinks tab';
+
+window.sendMemberEmail = function(id) {
+  const member = _tabMembers.find(m => m.id === id);
+  if (!member || !member.email) { toast('This member has no email address', 'error'); return; }
+
+  const unpaidOrders = _tabOrders.filter(o => o.memberId === id && !o.paid);
+  if (!unpaidOrders.length) { toast('Nothing unpaid to email about', 'info'); return; }
+
+  const itemTotals = {};
+  unpaidOrders.forEach(o => (o.items || []).forEach(i => {
+    itemTotals[i.name] = (itemTotals[i.name] || 0) + i.quantity;
+  }));
+  const drinks = Object.entries(itemTotals).map(([name, qty]) => `${qty}x ${name}`).join('\n');
+  const total = fmtCurrency(unpaidOrders.reduce((s, o) => s + (o.totalAmount || 0), 0));
+
+  const fill = tpl => tpl
+    .replace(/\[name\]/g, member.name)
+    .replace(/\[drinks\]/g, drinks)
+    .replace(/\[total\]/g, total);
+
+  const subject = fill(_systemSettings.emailTemplateSubject || DEFAULT_EMAIL_TEMPLATE_SUBJECT);
+  const body = fill(_systemSettings.emailTemplateBody || DEFAULT_EMAIL_TEMPLATE_BODY);
+
+  window.location.href = `mailto:${encodeURIComponent(member.email)}` +
+    `?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+window.toggleTabsMenu = function(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('tabsMenuDropdown');
+  menu.style.display = menu.style.display === 'none' ? '' : 'none';
+};
+
+document.addEventListener('click', () => {
+  const menu = document.getElementById('tabsMenuDropdown');
+  if (menu) menu.style.display = 'none';
+});
 
 function csvField(v) {
   const s = String(v ?? '');
