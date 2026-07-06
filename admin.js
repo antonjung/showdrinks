@@ -28,6 +28,10 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+const DEFAULT_EMAIL_TEMPLATE_SUBJECT = 'Your ShowDrinks tab';
+const DEFAULT_EMAIL_TEMPLATE_BODY =
+  'Hi [name],\n\nYou have an outstanding drinks tab of [total]:\n[drinks]\n\nPlease settle up when you get a chance. Thanks!';
+
 // ── Tab switching ──────────────────────────────────────────────────────────
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -717,8 +721,8 @@ async function loadSettings() {
     document.getElementById('sumupMerchantCode').value = d.sumupMerchantCode || '';
     document.getElementById('sumupApiKey').value = d.sumupApiKey || '';
     document.getElementById('paymentMode').value = d.paymentMode || 'bar';
-    document.getElementById('emailTemplateSubject').value = d.emailTemplateSubject || '';
-    document.getElementById('emailTemplateBody').value = d.emailTemplateBody || '';
+    document.getElementById('emailTemplateSubject').value = d.emailTemplateSubject || DEFAULT_EMAIL_TEMPLATE_SUBJECT;
+    document.getElementById('emailTemplateBody').value = d.emailTemplateBody || DEFAULT_EMAIL_TEMPLATE_BODY;
   } catch(e) {
     console.error(e);
   }
@@ -1463,10 +1467,6 @@ window.promptEditMemberEmail = async function(id) {
     toast('Failed: ' + e.message, 'error');
   }
 };
-
-const DEFAULT_EMAIL_TEMPLATE_BODY =
-  'Hi [name],\n\nYou have an outstanding drinks tab of [total]:\n[drinks]\n\nPlease settle up when you get a chance. Thanks!';
-const DEFAULT_EMAIL_TEMPLATE_SUBJECT = 'Your ShowDrinks tab';
 
 window.sendMemberEmail = function(id) {
   const member = _tabMembers.find(m => m.id === id);
