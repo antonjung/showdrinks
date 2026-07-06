@@ -214,10 +214,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .pos-grid-list-item { display:flex; align-items:center; justify-content:space-between; padding:7px 8px; border-radius:6px; cursor:pointer; font-size:13px; margin-bottom:2px; transition:background .1s; }
 .pos-grid-list-item:hover { background:var(--bg); }
 .pos-grid-list-item.active { background:var(--primary); color:#fff; }
-/* ── Show Tabs split layout ── */
-.tabs-layout { display:flex; gap:16px; align-items:stretch; }
-.tabs-sidebar { flex:1; min-width:0; display:flex; flex-direction:column; gap:16px; max-height:75vh; overflow-y:auto; }
-.tabs-main-panel { flex:1; min-width:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; min-height:400px; max-height:75vh; overflow-y:auto; }
+/* ── Show Tabs ── */
 .tab-member-row { cursor:pointer; transition:border-color .15s, box-shadow .15s; }
 .tab-member-row:hover { border-color:var(--primary); }
 .tab-member-row.active { border-color:var(--primary); background:var(--primary-light); }
@@ -252,6 +249,4 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   .form-row { grid-template-columns: 1fr; }
   .orders-toolbar { flex-direction: column; align-items: stretch; }
   .order-card-header { flex-wrap: wrap; }
-  .tabs-layout { flex-direction: column; }
-  .tabs-sidebar { width: 100%; }
 }

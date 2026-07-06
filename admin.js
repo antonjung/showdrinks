@@ -1185,6 +1185,13 @@ let _tabStack            = ['root'];
 let _tabBasket           = {};
 let _tabSelectedKey      = null;
 
+window.selectTabsSubtab = function(name) {
+  document.querySelectorAll('#tabSubNav .cat-filter-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.subtab === name));
+  document.getElementById('subtab-pos').style.display     = name === 'pos'     ? '' : 'none';
+  document.getElementById('subtab-members').style.display = name === 'members' ? '' : 'none';
+};
+
 async function loadShowTabs() {
   if (!Object.keys(_posGrids).length) await loadPosGrids();
   await loadTabMembers();
@@ -1226,6 +1233,7 @@ window.selectTabMember = function(id) {
     posArea.style.display = '';
     renderTabGrid();
     renderTabBasket();
+    selectTabsSubtab('pos');
   } else {
     banner.style.background = 'var(--bg)';
     banner.style.color = 'var(--text-muted)';
