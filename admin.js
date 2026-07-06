@@ -1468,13 +1468,8 @@ window.promptEditMemberEmail = async function(id) {
   }
 };
 
-window.sendMemberEmail = function(id) {
-  const member = _tabMembers.find(m => m.id === id);
-  if (!member || !member.email) { toast('This member has no email address', 'error'); return; }
-
-  const unpaidOrders = _tabOrders.filter(o => o.memberId === id && !o.paid);
-  if (!unpaidOrders.length) { toast('Nothing unpaid to email about', 'info'); return; }
-
+function buildMemberEmailMailto(member) {
+  const unpaidOrders = _tabOrders.filter(o => o.memberId === member.id && !o.paid);
   const itemTotals = {};
   unpaidOrders.forEach(o => (o.items || []).forEach(i => {
     itemTotals[i.name] = (itemTotals[i.name] || 0) + i.quantity;
@@ -1490,8 +1485,42 @@ window.sendMemberEmail = function(id) {
   const subject = fill(_systemSettings.emailTemplateSubject || DEFAULT_EMAIL_TEMPLATE_SUBJECT);
   const body = fill(_systemSettings.emailTemplateBody || DEFAULT_EMAIL_TEMPLATE_BODY);
 
-  window.location.href = `mailto:${encodeURIComponent(member.email)}` +
-    `?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return `mailto:${encodeURIComponent(member.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+window.sendMemberEmail = function(id) {
+  const member = _tabMembers.find(m => m.id === id);
+  if (!member || !member.email) { toast('This member has no email address', 'error'); return; }
+
+  const hasUnpaid = _tabOrders.some(o => o.memberId === id && !o.paid);
+  if (!hasUnpaid) { toast('Nothing unpaid to email about', 'info'); return; }
+
+  window.location.href = buildMemberEmailMailto(member);
+};
+
+window.emailAllOwingMembers = function() {
+  const owing = _tabMembers.filter(m => _tabOrders.some(o => o.memberId === m.id && !o.paid));
+  const withEmail = owing.filter(m => m.email);
+  const withoutEmail = owing.length - withEmail.length;
+
+  if (!withEmail.length) {
+    toast(withoutEmail ? `${withoutEmail} member(s) owe money but have no email on file` : 'No outstanding balances to email', 'info');
+    return;
+  }
+
+  const extra = withoutEmail ? ` ${withoutEmail} more owe money but have no email on file.` : '';
+  const ok = confirm(
+    `Open ${withEmail.length} email draft${withEmail.length !== 1 ? 's' : ''} (one per member who owes money)?${extra}\n\n` +
+    `Your email client will open once per member — some browsers may prompt for permission after the first couple.`
+  );
+  if (!ok) return;
+
+  withEmail.forEach(m => {
+    const a = document.createElement('a');
+    a.href = buildMemberEmailMailto(m);
+    a.click();
+  });
+  toast(`Opened ${withEmail.length} email draft${withEmail.length !== 1 ? 's' : ''}`, 'success');
 };
 
 window.toggleTabsMenu = function(e) {
