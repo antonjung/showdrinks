@@ -1200,12 +1200,21 @@ async function loadShowTabs() {
 async function loadTabMembers() {
   const snap = await db.collection('tabMembers').orderBy('name').get();
   _tabMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderTabMemberSelect();
   renderTabMembersList();
+}
+
+function renderTabMemberSelect() {
+  const sel = document.getElementById('tabMemberSelect');
+  sel.innerHTML = '<option value="">— choose a member —</option>' +
+    _tabMembers.map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
+  sel.value = _tabSelectedMemberId || '';
 }
 
 window.selectTabMember = function(id) {
   _tabSelectedMemberId = id || null;
   _tabStack = ['root']; _tabBasket = {}; _tabSelectedKey = null;
+  document.getElementById('tabMemberSelect').value = id || '';
 
   const banner = document.getElementById('tabActiveMemberBanner');
   const posArea = document.getElementById('tabPosArea');
@@ -1238,6 +1247,7 @@ document.getElementById('addTabMemberBtn').addEventListener('click', async () =>
     });
     _tabMembers.push({ id: ref.id, name });
     _tabMembers.sort((a, b) => a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1);
+    renderTabMemberSelect();
     selectTabMember(ref.id);
     input.value = '';
     toast('Member added', 'success');
@@ -1425,6 +1435,7 @@ window.deleteTabMember = async function(id) {
     await db.collection('tabMembers').doc(id).delete();
     _tabMembers = _tabMembers.filter(m => m.id !== id);
     if (_tabSelectedMemberId === id) selectTabMember(null);
+    renderTabMemberSelect();
     renderTabMembersList();
     toast('Member removed', 'info');
   } catch(e) {

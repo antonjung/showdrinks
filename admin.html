@@ -334,7 +334,13 @@
 
       <div class="tabs-main-panel">
         <div class="card-header" style="padding:0 0 16px"><h2>Point of Sale</h2></div>
-        <div id="tabActiveMemberBanner" style="margin-bottom:14px;padding:10px 14px;background:var(--bg);color:var(--text-muted);border-radius:10px;font-weight:700">
+        <div class="form-group" style="max-width:320px">
+          <label for="tabMemberSelect">Jump to Member</label>
+          <select id="tabMemberSelect" class="form-control" onchange="selectTabMember(this.value)">
+            <option value="">— choose a member —</option>
+          </select>
+        </div>
+        <div id="tabActiveMemberBanner" style="margin:14px 0;padding:10px 14px;background:var(--bg);color:var(--text-muted);border-radius:10px;font-weight:700">
           Select a member on the left to add drinks
         </div>
 
