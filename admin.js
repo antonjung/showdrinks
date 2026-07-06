@@ -1485,13 +1485,12 @@ async function deleteAllDocs(collectionName) {
 }
 
 document.getElementById('clearAllTabsBtn').addEventListener('click', async () => {
-  if (!confirm('Delete ALL tab members and their sales history? This cannot be undone.')) return;
+  if (!confirm('Delete ALL tab sales history? Member names are kept. This cannot be undone.')) return;
   try {
-    await Promise.all([deleteAllDocs('tabMembers'), deleteAllDocs('tabOrders')]);
-    _tabMembers = []; _tabOrders = []; _tabExpandedMemberId = null;
-    renderTabMemberSelect();
-    selectTabMember(null);
-    toast('All tabs cleared', 'info');
+    await deleteAllDocs('tabOrders');
+    _tabOrders = []; _tabExpandedMemberId = null;
+    renderTabMembersList();
+    toast('All tab sales cleared', 'info');
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
   }
