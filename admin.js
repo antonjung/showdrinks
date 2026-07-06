@@ -1223,21 +1223,14 @@ window.selectTabMember = function(id) {
   _tabStack = ['root']; _tabBasket = {}; _tabSelectedKey = null;
   document.getElementById('tabMemberSelect').value = id || '';
 
-  const banner = document.getElementById('tabActiveMemberBanner');
   const posArea = document.getElementById('tabPosArea');
   const member = _tabMembers.find(m => m.id === _tabSelectedMemberId);
   if (member) {
-    banner.style.background = 'var(--primary-light)';
-    banner.style.color = 'var(--primary)';
-    banner.textContent = `Adding drinks for: ${member.name}`;
     posArea.style.display = '';
     renderTabGrid();
     renderTabBasket();
     selectTabsSubtab('pos');
   } else {
-    banner.style.background = 'var(--bg)';
-    banner.style.color = 'var(--text-muted)';
-    banner.textContent = 'Select a member on the left to add drinks';
     posArea.style.display = 'none';
   }
   renderTabMembersList();
