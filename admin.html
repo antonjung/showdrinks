@@ -67,13 +67,40 @@
           <div class="form-group">
             <label>Show Dates</label>
             <p style="font-size:12px;color:var(--text-muted);margin:-4px 0 8px">
-              Leave empty for a show with no fixed dates — the PWA will then use the session cut-off times alone, applied every day.
+              Optional — used to filter the Orders tab by date. The customer PWA always orders for
+              today and enforces session cut-off times daily; it doesn't ask customers to pick a date.
             </p>
             <div style="display:flex;gap:8px;margin-bottom:8px">
               <input type="date" id="newDateInput" class="form-control">
               <button class="btn btn-primary" id="addDateBtn">Add</button>
             </div>
             <div class="dates-list" id="datesList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><h2>Payment Settings (this show)</h2></div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+            Leave any of these blank to fall back to the system defaults set in
+            <strong>Settings &amp; QR</strong>.
+          </p>
+          <div class="form-group">
+            <label for="showPaymentMode">Payment Mode</label>
+            <select id="showPaymentMode" class="form-control">
+              <option value="">Use system default</option>
+              <option value="bar">Pay at Bar (no online payment)</option>
+              <option value="sumup">SumUp Online Checkout</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="showSumupMerchantCode">Merchant Code</label>
+            <input type="text" id="showSumupMerchantCode" class="form-control" placeholder="Use system default">
+          </div>
+          <div class="form-group">
+            <label for="showSumupApiKey">API Key (keep secret)</label>
+            <input type="password" id="showSumupApiKey" class="form-control" placeholder="Use system default">
           </div>
         </div>
       </div>
@@ -322,8 +349,12 @@
     </div>
 
     <div class="card" style="margin-bottom:20px">
-      <div class="card-header"><h2>SumUp Payment Settings</h2></div>
+      <div class="card-header"><h2>SumUp Payment Settings (system default)</h2></div>
       <div class="card-body">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+          Used for any show that doesn't set its own payment settings. Per-show overrides
+          live in Show &amp; Sessions → Payment Settings.
+        </p>
         <div class="form-group">
           <label for="sumupMerchantCode">Merchant Code</label>
           <input type="text" id="sumupMerchantCode" class="form-control" placeholder="Your SumUp merchant code">

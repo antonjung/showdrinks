@@ -168,6 +168,10 @@ function renderShowEditor() {
   setCurBtn.disabled = !!show.isCurrent;
   setCurBtn.textContent = show.isCurrent ? 'Current Show' : 'Set as Current';
 
+  document.getElementById('showPaymentMode').value       = show.paymentMode || '';
+  document.getElementById('showSumupMerchantCode').value = show.sumupMerchantCode || '';
+  document.getElementById('showSumupApiKey').value        = show.sumupApiKey || '';
+
   const sessions = show.sessions || {};
   ['before','interval','after'].forEach(id => {
     const d = sessions[id] || DEFAULT_SESSIONS[id];
@@ -219,10 +223,16 @@ document.getElementById('saveShowBtn').addEventListener('click', async () => {
     };
   });
 
+  const paymentMode       = document.getElementById('showPaymentMode').value;
+  const sumupMerchantCode = document.getElementById('showSumupMerchantCode').value.trim();
+  const sumupApiKey       = document.getElementById('showSumupApiKey').value.trim();
+
   try {
-    await db.collection('shows').doc(_selectedShowId).update({ name, dates: showDates, sessions });
+    await db.collection('shows').doc(_selectedShowId).update({
+      name, dates: showDates, sessions, paymentMode, sumupMerchantCode, sumupApiKey,
+    });
     const show = _shows.find(s => s.id === _selectedShowId);
-    if (show) { show.name = name; show.dates = showDates; show.sessions = sessions; }
+    if (show) { Object.assign(show, { name, dates: showDates, sessions, paymentMode, sumupMerchantCode, sumupApiKey }); }
     renderShowsList();
     updateHeaderShowName();
     populateDateFilter();

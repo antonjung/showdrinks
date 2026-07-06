@@ -77,14 +77,14 @@ function goTo(step) {
   document.getElementById('screen' + step).classList.add('active');
   // Compact hero on all non-home screens
   body.classList.toggle('sub-screen', step !== 0);
-  body.classList.toggle('pos-screen', step === 2);
+  body.classList.toggle('pos-screen', step === 1);
   updateStepBar();
   updateBottomBar();
   window.scrollTo(0, 0);
 }
 
 function updateStepBar() {
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 4; i++) {
     const dot = document.getElementById('dot' + i);
     dot.className = 'step-dot' + (i < state.step ? ' done' : i === state.step ? ' active' : '');
   }
@@ -94,8 +94,8 @@ function updateBottomBar() {
   const bar  = document.getElementById('bottomBar');
   const next = document.getElementById('nextBtn');
   const back = document.getElementById('backBtn');
-  if (state.step === 0 || state.step === 4) { bar.style.display = 'none'; return; }
-  if (state.step === 3) {
+  if (state.step === 0 || state.step === 3) { bar.style.display = 'none'; return; }
+  if (state.step === 2) {
     bar.style.display = 'flex';
     if (state.editingOrderId) {
       back.textContent = '← Close';
@@ -108,10 +108,10 @@ function updateBottomBar() {
     }
     return;
   }
-  if (state.step === 2 && !state.editingOrderId) { bar.style.display = 'none'; return; }
+  if (state.step === 1 && !state.editingOrderId) { bar.style.display = 'none'; return; }
   next.style.display = '';
   bar.style.display = 'flex';
-  if (state.step === 2) {
+  if (state.step === 1) {
     back.textContent = '← Cancel';
     const isEditable = state.editingOrderStatus === 'pending';
     next.textContent = isEditable ? 'Save Changes' : 'View Status →';
@@ -124,18 +124,16 @@ function updateBottomBar() {
 }
 
 document.getElementById('backBtn').addEventListener('click', () => {
-  if (state.step === 2 && state.posGridStack.length > 1) {
+  if (state.step === 1 && state.posGridStack.length > 1) {
     state.posGridStack.pop(); renderPosGrid(); return;
   }
-  if (state.step === 3 && state.editingOrderId) {
+  if (state.step === 2 && state.editingOrderId) {
     state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
     state.basket = {};
     goTo(0); renderHomeScreen();
-  } else if (state.step === 2 && state.editingOrderId) {
+  } else if (state.step === 1 && state.editingOrderId) {
     state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
     state.basket = {};
-    goTo(0); renderHomeScreen();
-  } else if (state.step === 1) {
     goTo(0); renderHomeScreen();
   } else if (state.step > 0) {
     goTo(state.step - 1);
@@ -143,28 +141,47 @@ document.getElementById('backBtn').addEventListener('click', () => {
 });
 
 document.getElementById('nextBtn').addEventListener('click', async () => {
-  if (state.step === 3 && state.editingOrderId) {
-    goTo(4); subscribeToOrderStatus(state.editingOrderId); return;
+  if (state.step === 2 && state.editingOrderId) {
+    goTo(3); subscribeToOrderStatus(state.editingOrderId); return;
   }
   if (state.step === 1) {
-    if (!state.showDate)  { toast('Please select a date',    'error'); return; }
-    if (!state.sessionId) { toast('Please select a session', 'error'); return; }
-    goTo(2); renderMenu();
-  } else if (state.step === 2) {
     if (state.editingOrderId) {
       if (state.editingOrderStatus !== 'pending') {
-        goTo(4); subscribeToOrderStatus(state.editingOrderId);
+        goTo(3); subscribeToOrderStatus(state.editingOrderId);
       } else {
         await saveOrderEdits();
       }
     } else {
       if (basketCount() === 0) { toast('Add at least one item', 'error'); return; }
-      goTo(3); renderReview();
+      goTo(2); renderReview();
     }
   }
 });
 
 // ── Screen 0: Home ─────────────────────────────────────────────────────────
+
+function getAvailableSessions() {
+  const sessions = state.sessions || {};
+  const now = new Date();
+  return ['before','interval','after'].map(id => {
+    const s = sessions[id] || {};
+    if (!s.enabled) return null;
+    // Cut-off recurs daily against today's clock time — no date selection in the PWA.
+    const cutOffPassed = !!(s.cutOff && now > new Date(today() + 'T' + s.cutOff + ':00'));
+    return { id, name: s.name || id, cutOffPassed, cutOff: s.cutOff };
+  }).filter(Boolean);
+}
+
+function sessionButtonsHtml() {
+  const items = getAvailableSessions();
+  if (!items.length) return '<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">No sessions available.</p>';
+  return '<div class="session-btn-grid">' + items.map(s => `
+    <button class="selector-btn ${s.cutOffPassed ? 'unavailable' : ''}"
+            ${s.cutOffPassed ? 'disabled' : `onclick="startSessionOrder('${s.id}','${escHtml(s.name)}')"`}>
+      ${escHtml(s.name)}
+      ${s.cutOff ? `<span class="sub">${s.cutOffPassed ? 'Ordering closed' : 'Order by ' + s.cutOff}</span>` : ''}
+    </button>`).join('') + '</div>';
+}
 
 async function renderHomeScreen() {
   const homeContent = document.getElementById('homeContent');
@@ -175,11 +192,9 @@ async function renderHomeScreen() {
   state.customerName = savedName;
   const allSaved = getSavedOrders();
 
-  const newOrderBtnHtml = `<button class="btn btn-primary btn-full btn-lg"
-             style="height:52px;border-radius:12px;margin:4px 0 16px"
-             onclick="startNewOrder()">+ New Order</button>`;
+  const sessionBtnsHtml = sessionButtonsHtml();
 
-  homeContent.innerHTML = buildWelcomeCard(savedName) + newOrderBtnHtml +
+  homeContent.innerHTML = buildWelcomeCard(savedName) + sessionBtnsHtml +
     '<div style="text-align:center;padding:12px 0;color:var(--text-muted);font-size:13px">Loading orders…</div>';
 
   const docs = await Promise.all(
@@ -194,7 +209,7 @@ async function renderHomeScreen() {
     ? `<div class="section-label" style="margin-bottom:6px">Your orders</div>${enriched.map(orderCard).join('')}`
     : '<p style="font-size:13px;color:var(--text-muted)">No orders yet.</p>';
 
-  homeContent.innerHTML = buildWelcomeCard(savedName) + newOrderBtnHtml + ordersSection;
+  homeContent.innerHTML = buildWelcomeCard(savedName) + sessionBtnsHtml + ordersSection;
 }
 
 function buildWelcomeCard(name) {
@@ -255,17 +270,17 @@ window.submitName = function() {
   if (!name) { toast('Please enter your name', 'error'); return; }
   state.customerName = name;
   saveName(name);
-  goTo(1); renderDateSession();
+  renderHomeScreen();
 };
 
 window.changeName = function() {
   localStorage.removeItem(LS_NAME); state.customerName = ''; renderHomeScreen();
 };
 
-window.startNewOrder = function() {
-  state.showDate = ''; state.sessionId = ''; state.sessionName = ''; state.basket = {};
+window.startSessionOrder = function(id, name) {
+  state.showDate = today(); state.sessionId = id; state.sessionName = name; state.basket = {};
   state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
-  goTo(1); renderDateSession();
+  goTo(1); renderMenu();
 };
 
 window.viewOrder = async function(orderId) {
@@ -287,94 +302,11 @@ window.viewOrder = async function(orderId) {
       state.basket[item.name] = { name: item.name, price: item.price, quantity: item.quantity };
     });
     state.selectedCategory = null;
-    goTo(3); renderReview();
+    goTo(2); renderReview();
   } catch(e) { toast('Error: ' + e.message, 'error'); }
 };
 
-// ── Screen 1: Date & Session ───────────────────────────────────────────────
-
-function renderDateSession() {
-  const todayStr = today();
-  const hasDates = !!(state.showConfig?.dates || []).length;
-  const dateSel  = document.getElementById('dateSelector');
-  const dateLbl  = document.getElementById('dateSectionLabel');
-
-  if (!hasDates) {
-    // No dates configured for this show — skip date selection, cut-off times alone govern availability.
-    state.showDate = todayStr;
-    dateLbl.style.display = 'none';
-    dateSel.style.display = 'none';
-    dateSel.innerHTML = '';
-    renderSessionSelector();
-    return;
-  }
-
-  dateLbl.style.display = '';
-  dateSel.style.display = '';
-
-  // Only show dates that are today or future
-  const dates = state.showConfig.dates.filter(d => d >= todayStr);
-
-  dateSel.innerHTML = dates.length
-    ? dates.map(d => `<button class="selector-btn ${d === state.showDate ? 'selected' : ''}"
-                               onclick="selectDate('${d}')" data-date="${d}">${fmtDate(d)}</button>`).join('')
-    : '<p style="color:var(--text-muted);font-size:14px;grid-column:1/-1">No upcoming show dates.</p>';
-
-  renderSessionSelector();
-}
-
-window.selectDate = function(date) {
-  state.showDate = date;
-  document.querySelectorAll('[data-date]').forEach(b => b.classList.toggle('selected', b.dataset.date === date));
-  renderSessionSelector();
-};
-
-function renderSessionSelector() {
-  const sesDiv   = document.getElementById('sessionSelector');
-  const sessions = state.sessions || {};
-  const hasDates = !!(state.showConfig?.dates || []).length;
-  const now = new Date();
-
-  const items = ['before','interval','after'].map(id => {
-    const s = sessions[id] || {};
-    if (!s.enabled) return null;
-    let cutOffPassed = false;
-    if (s.cutOff) {
-      if (hasDates) {
-        if (state.showDate) {
-          const d = s.cutOffDay === 'prev' ? subtractDay(state.showDate) : state.showDate;
-          cutOffPassed = now > new Date(d + 'T' + s.cutOff + ':00');
-        }
-      } else {
-        // No dates configured — cut-off recurs daily against today's clock time only.
-        cutOffPassed = now > new Date(today() + 'T' + s.cutOff + ':00');
-      }
-    }
-    return { id, name: s.name || id, cutOffPassed, cutOff: s.cutOff };
-  }).filter(Boolean);
-
-  sesDiv.innerHTML = items.length
-    ? '<div class="selector-grid">' + items.map(s => `
-        <button class="selector-btn ${s.id === state.sessionId ? 'selected' : ''} ${s.cutOffPassed ? 'unavailable' : ''}"
-                ${s.cutOffPassed ? 'disabled' : `onclick="selectSession('${s.id}','${escHtml(s.name)}')"`}
-                data-session="${s.id}">
-          ${escHtml(s.name)}
-          ${s.cutOff ? `<span class="sub">${s.cutOffPassed ? 'Ordering closed' : 'Order by ' + s.cutOff}</span>` : ''}
-        </button>`).join('') + '</div>'
-    : '<p style="color:var(--text-muted);font-size:14px">No sessions available.</p>';
-}
-
-function subtractDay(iso) {
-  const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10);
-}
-
-window.selectSession = function(id, name) {
-  state.sessionId = id; state.sessionName = name;
-  document.querySelectorAll('[data-session]').forEach(b => b.classList.toggle('selected', b.dataset.session === id));
-  updateBottomBar();
-};
-
-// ── Screen 2: Order / Edit ─────────────────────────────────────────────────
+// ── Screen 1: Order / Edit ─────────────────────────────────────────────────
 
 function renderMenu() {
   const statusTag = state.editingOrderId
@@ -461,11 +393,11 @@ window.handlePosBtn = function(idx) {
     if (state.posGridStack.length > 1) {
       state.posGridStack.pop(); renderPosGrid();
     } else {
-      goTo(1); renderDateSession();
+      goTo(0); renderHomeScreen();
     }
   } else if (cell.type === 'finish') {
     if (basketCount() === 0) { toast('Add at least one item', 'error'); return; }
-    goTo(3); renderReview();
+    goTo(2); renderReview();
   }
 };
 
@@ -558,7 +490,7 @@ async function saveOrderEdits() {
     const doc = await db.collection('orders').doc(state.editingOrderId).get();
     if (doc.exists) showOrderStatus({ id: doc.id, ...doc.data() });
     state.editingOrderId = null; state.editingOrderStatus = null; state.editingOrderNumber = null;
-    goTo(4);
+    goTo(3);
     subscribeToOrderStatus(state.currentStatusOrderId);
   } catch(e) {
     toast('Failed: ' + e.message, 'error');
@@ -566,7 +498,7 @@ async function saveOrderEdits() {
   }
 }
 
-// ── Screen 3: Review & Pay ─────────────────────────────────────────────────
+// ── Screen 2: Review & Pay ─────────────────────────────────────────────────
 
 function renderReview() {
   document.getElementById('reviewName').textContent    = state.customerName;
@@ -650,7 +582,7 @@ async function placeOrder(paymentMode) {
 
     if (paymentMode === 'bar') {
       showOrderStatus({ ...order, id: orderRef.id, orderNumber });
-      goTo(4);
+      goTo(3);
       subscribeToOrderStatus(orderRef.id);
     }
   } catch(e) {
@@ -666,7 +598,7 @@ function initiateSumupPayment() {
   window.location.href = `https://pay.sumup.com/b2c/QRCODE?affiliate-key=${encodeURIComponent(code)}&amount=${basketTotal().toFixed(2)}&currency=GBP&ref=${encodeURIComponent(state.orderId)}`;
 }
 
-// ── Screen 4: Status ───────────────────────────────────────────────────────
+// ── Screen 3: Status ───────────────────────────────────────────────────────
 
 function showOrderStatus(order) {
   const isReady     = order.prepStatus === 'ready';
@@ -784,7 +716,14 @@ async function init() {
     state.showConfig = currentShow || {};
     state.sessions   = currentShow?.sessions || {};
     state.menuItems  = menuSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    state.settings   = settingsDoc.exists ? settingsDoc.data() : {};
+    // Per-show payment settings override the system defaults when set
+    const systemSettings = settingsDoc.exists ? settingsDoc.data() : {};
+    state.settings = {
+      ...systemSettings,
+      ...(currentShow?.paymentMode ? { paymentMode: currentShow.paymentMode } : {}),
+      ...(currentShow?.sumupMerchantCode ? { sumupMerchantCode: currentShow.sumupMerchantCode } : {}),
+      ...(currentShow?.sumupApiKey ? { sumupApiKey: currentShow.sumupApiKey } : {}),
+    };
     state.posGrids   = {};
     posSnap.docs.forEach(d => { state.posGrids[d.id] = { id: d.id, ...d.data() }; });
 
@@ -807,7 +746,7 @@ async function init() {
         if (doc.exists) {
           showOrderStatus({ id: doc.id, ...doc.data() });
           subscribeToOrderStatus(orderId);
-          goTo(4);
+          goTo(3);
           history.replaceState({}, '', window.location.pathname);
           return;
         }

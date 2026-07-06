@@ -103,7 +103,7 @@
     .pos-screen .pwa-hero,
     .pos-screen .step-bar { display:none; }
     .pos-screen .pwa-content { padding:10px 12px 12px; display:flex; flex-direction:column; height:calc(100vh - env(safe-area-inset-top)); height:calc(100dvh - env(safe-area-inset-top)); box-sizing:border-box; overflow:hidden; }
-    .pos-screen #screen2 { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
+    .pos-screen #screen1 { flex:1; display:flex; flex-direction:column; overflow:hidden; min-height:0; }
     .pos-screen .order-grid-pane { flex:0 0 calc(40% - 24px); height:auto; max-height:none; overflow-y:auto; }
     .pos-screen #posGrid { flex:0 0 60%; overflow-y:auto; min-height:0; }
 
@@ -148,10 +148,8 @@
 
     .review-status-row { background:var(--primary-light); color:var(--primary); border-radius:10px; padding:10px 14px; font-weight:700; font-size:14px; }
 
-    /* Screen 1 tighter headings */
-    .screen-h { font-size:16px; font-weight:700; margin-bottom:8px; margin-top:16px; }
-    .screen-h:first-child { margin-top:0; }
-    .screen-sub { font-size:12px; color:var(--text-muted); margin-bottom:10px; }
+    /* Session buttons on the home screen */
+    .session-btn-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(100px,1fr)); gap:10px; margin:4px 0 20px; }
 
     /* Collected order state */
     .past-order-card.collected { opacity:.55; border-color:var(--border); }
@@ -179,7 +177,6 @@
     <div class="step-dot" id="dot1"></div>
     <div class="step-dot" id="dot2"></div>
     <div class="step-dot" id="dot3"></div>
-    <div class="step-dot" id="dot4"></div>
   </div>
 
   <div class="pwa-content">
@@ -189,22 +186,14 @@
       <div id="homeContent"></div>
     </div>
 
-    <!-- Screen 1: Date & Session -->
+    <!-- Screen 1: Order (also edit/view mode for existing orders) -->
     <div class="screen" id="screen1">
-      <div class="screen-h" id="dateSectionLabel">Date</div>
-      <div class="selector-grid" id="dateSelector"></div>
-      <div class="screen-h">Session</div>
-      <div id="sessionSelector"></div>
-    </div>
-
-    <!-- Screen 2: Order (also edit/view mode for existing orders) -->
-    <div class="screen" id="screen2">
       <div class="order-grid-pane" id="orderGridPane"></div>
       <div id="posGrid"></div>
     </div>
 
-    <!-- Screen 3: Review & Pay -->
-    <div class="screen" id="screen3">
+    <!-- Screen 2: Review & Pay -->
+    <div class="screen" id="screen2">
       <div class="pwa-section-title">Order Summary</div>
       <div id="reviewStatus" style="display:none;margin-bottom:12px"></div>
 
@@ -240,8 +229,8 @@
       </div>
     </div>
 
-    <!-- Screen 4: Confirmation & Status -->
-    <div class="screen" id="screen4">
+    <!-- Screen 3: Confirmation & Status -->
+    <div class="screen" id="screen3">
       <div class="status-screen" id="orderStatus">
         <div class="status-icon-wrap pending" id="statusIcon">⏳</div>
         <div id="confOrderNum" style="font-size:42px;font-weight:900;color:var(--primary);letter-spacing:-1px;margin-bottom:4px"></div>

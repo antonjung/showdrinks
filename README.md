@@ -60,6 +60,7 @@ Convert `icons/icon.svg` to `icons/icon-192.png` and `icons/icon-512.png` using 
 
 - Set payment mode to **Pay at Bar** to skip online payment (customers pay when they collect).
 - For **SumUp Online Checkout**, enter your Merchant Code in Settings. A Firebase Cloud Function is required to securely create checkouts — see `functions/` (not yet included).
+- Settings & QR holds the **system default** payment settings. Each show can optionally override payment mode/merchant code/API key in its own Payment Settings section — leave a show's fields blank to fall back to the system default.
 
 ## Usage
 
@@ -76,7 +77,7 @@ Convert `icons/icon.svg` to `icons/icon-192.png` and `icons/icon-512.png` using 
 ### Customers (`index.html`)
 
 1. Scan the QR code displayed in admin → Settings & QR.
-2. Enter name → pick date → pick session → choose drinks → confirm order.
+2. Enter name → pick a session (Before/Interval/After Show) → choose drinks → confirm order.
 3. Check back later to see if drinks are ready and where to collect.
 
 ## Local Testing
