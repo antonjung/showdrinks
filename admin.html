@@ -24,6 +24,7 @@
   <button class="tab-btn" data-tab="menu">Menu Items</button>
   <button class="tab-btn" data-tab="locations">Locations</button>
   <button class="tab-btn" data-tab="orders">Orders</button>
+  <button class="tab-btn" data-tab="tabs">Show Tabs</button>
   <button class="tab-btn" data-tab="pos">POS Layout</button>
   <button class="tab-btn" data-tab="settings">Settings &amp; QR</button>
 </nav>
@@ -296,6 +297,55 @@
 
     <div id="ordersContainer">
       <p style="color:var(--text-muted);font-size:14px">Select a date to see orders.</p>
+    </div>
+  </div>
+
+  <!-- ── SHOW TABS ── -->
+  <div id="tab-tabs" class="tab-panel">
+    <div class="section-header">
+      <h2>Show Tabs</h2>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin:-8px 0 16px">
+      For cast &amp; crew who order drinks during the show and settle up later. Pick or add a member,
+      then use the grid to add drinks to their tab.
+    </p>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><h2>Add Drinks to a Tab</h2></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="tabMemberSelect">Select Member</label>
+            <select id="tabMemberSelect" class="form-control" onchange="selectTabMember(this.value)">
+              <option value="">— choose a member —</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="newTabMemberName">Or Add New Member</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="newTabMemberName" class="form-control" placeholder="Cast/crew member name">
+              <button class="btn btn-primary" id="addTabMemberBtn">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="tabActiveMemberBanner" style="display:none;margin:14px 0;padding:10px 14px;background:var(--primary-light);color:var(--primary);border-radius:10px;font-weight:700"></div>
+
+        <div id="tabPosArea" style="display:none">
+          <div id="tabBasket" style="min-height:36px;background:var(--bg);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px"></div>
+          <div id="tabPosGrid"></div>
+          <button class="btn btn-success btn-full" style="margin-top:10px;height:48px;border-radius:12px" id="tabAddToOrderBtn">Add to Tab</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Members &amp; Totals</h2></div>
+      <div class="card-body">
+        <div class="item-list" id="tabMembersList">
+          <p style="color:var(--text-muted);font-size:14px">No tab members yet.</p>
+        </div>
+      </div>
     </div>
   </div>
 

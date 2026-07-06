@@ -45,5 +45,15 @@ service cloud.firestore {
       allow update: if true;
       allow delete: if true;
     }
+
+    // Show Tabs — admin-only feature for cast/crew running tabs
+    match /tabMembers/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
+    match /tabOrders/{id} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

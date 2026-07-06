@@ -37,6 +37,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'orders') loadOrders();
+    if (btn.dataset.tab === 'tabs') loadShowTabs();
     if (btn.dataset.tab === 'pos') loadPosGrids();
   });
 });
@@ -1173,6 +1174,256 @@ window.handlePosTestBtn = function(idx) {
 document.getElementById('posTestModal').addEventListener('click', function(e) {
   if (e.target === this) posCloseTest();
 });
+
+// ── Show Tabs ────────────────────────────────────────────────────────────────
+
+let _tabMembers          = [];   // [{id, name}]
+let _tabOrders           = [];   // [{id, memberId, memberName, items, totalAmount, paid, createdAt}]
+let _tabOrdersUnsubscribe = null;
+let _tabSelectedMemberId = null;
+let _tabStack            = ['root'];
+let _tabBasket           = {};
+let _tabSelectedKey      = null;
+
+async function loadShowTabs() {
+  if (!Object.keys(_posGrids).length) await loadPosGrids();
+  await loadTabMembers();
+  if (_tabOrdersUnsubscribe) { _tabOrdersUnsubscribe(); _tabOrdersUnsubscribe = null; }
+  _tabOrdersUnsubscribe = db.collection('tabOrders').orderBy('createdAt', 'desc').onSnapshot(snap => {
+    _tabOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderTabMembersList();
+  }, e => toast('Could not load tabs: ' + e.message, 'error'));
+  renderTabGrid();
+  renderTabBasket();
+}
+
+async function loadTabMembers() {
+  const snap = await db.collection('tabMembers').orderBy('name').get();
+  _tabMembers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderTabMemberSelect();
+  renderTabMembersList();
+}
+
+function renderTabMemberSelect() {
+  const sel = document.getElementById('tabMemberSelect');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— choose a member —</option>' +
+    _tabMembers.map(m => `<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
+  sel.value = _tabMembers.find(m => m.id === current) ? current : (_tabSelectedMemberId || '');
+}
+
+window.selectTabMember = function(id) {
+  _tabSelectedMemberId = id || null;
+  _tabStack = ['root']; _tabBasket = {}; _tabSelectedKey = null;
+  document.getElementById('tabMemberSelect').value = id || '';
+
+  const banner = document.getElementById('tabActiveMemberBanner');
+  const posArea = document.getElementById('tabPosArea');
+  const member = _tabMembers.find(m => m.id === _tabSelectedMemberId);
+  if (member) {
+    banner.style.display = '';
+    banner.textContent = `Adding drinks for: ${member.name}`;
+    posArea.style.display = '';
+    renderTabGrid();
+    renderTabBasket();
+  } else {
+    banner.style.display = 'none';
+    posArea.style.display = 'none';
+  }
+};
+
+document.getElementById('addTabMemberBtn').addEventListener('click', async () => {
+  const input = document.getElementById('newTabMemberName');
+  const name = input.value.trim();
+  if (!name) { toast('Enter a member name', 'error'); return; }
+  const dupe = _tabMembers.find(m => m.name.toLowerCase() === name.toLowerCase());
+  if (dupe) { selectTabMember(dupe.id); input.value = ''; return; }
+  try {
+    const ref = await db.collection('tabMembers').add({
+      name, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    _tabMembers.push({ id: ref.id, name });
+    _tabMembers.sort((a, b) => a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1);
+    renderTabMemberSelect();
+    selectTabMember(ref.id);
+    input.value = '';
+    toast('Member added', 'success');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+});
+
+function renderTabGrid() {
+  const gridId = _tabStack[_tabStack.length - 1];
+  const grid = _posGrids[gridId];
+  const el = document.getElementById('tabPosGrid');
+  if (!el) return;
+  if (!grid) { el.innerHTML = '<p style="color:var(--text-muted);font-size:13px">POS layout not set up yet — configure it in POS Layout.</p>'; return; }
+  const cells = posNormCells(grid.cells);
+  function cellBtn(cell, i) {
+    if (!cell || cell.type === 'empty') return `<button class="pos-btn empty" disabled></button>`;
+    const style = cell.color
+      ? `background:${cell.color};color:${posIsLight(cell.color)?'#1e293b':'#fff'};border-color:${cell.color};` : '';
+    const price = cell.type === 'item' && cell.menuItemPrice ? fmtCurrency(cell.menuItemPrice) : '';
+    return `<button class="pos-btn" style="${style}" onclick="handleTabPosBtn(${i})">
+      <span class="pb-lbl">${escHtml(cell.label || '')}</span>
+      ${price ? `<span class="pb-price">${price}</span>` : ''}
+    </button>`;
+  }
+  el.innerHTML =
+    `<div class="pos-grid">${cells.slice(0,12).map((c,i) => cellBtn(c,i)).join('')}</div>` +
+    `<div class="pos-grid-extra">${cells.slice(12).map((c,i) => cellBtn(c,12+i)).join('')}</div>`;
+}
+
+function renderTabBasket() {
+  const el = document.getElementById('tabBasket');
+  if (!el) return;
+  const items = Object.values(_tabBasket);
+  if (!items.length) { el.innerHTML = '<span style="color:var(--text-muted)">No drinks added yet</span>'; return; }
+  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+  el.innerHTML = items.map(i =>
+    `<div style="display:flex;justify-content:space-between">
+       <span>${i.qty}× ${escHtml(i.name)}</span>
+       <span>${fmtCurrency(i.price * i.qty)}</span>
+     </div>`).join('') +
+    `<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:4px;font-weight:700;display:flex;justify-content:space-between">
+       <span>Total</span><span>${fmtCurrency(total)}</span>
+     </div>`;
+}
+
+window.handleTabPosBtn = function(idx) {
+  const grid = _posGrids[_tabStack[_tabStack.length - 1]];
+  if (!grid) return;
+  const cell = posNormCells(grid.cells)[idx];
+  if (!cell || cell.type === 'empty') return;
+  if (cell.type === 'item') {
+    const key = cell.label || cell.menuItemId;
+    if (!_tabBasket[key]) _tabBasket[key] = { name: cell.label, price: cell.menuItemPrice || 0, qty: 0 };
+    _tabBasket[key].qty += 1;
+    _tabSelectedKey = key;
+    _tabStack = ['root']; renderTabGrid(); renderTabBasket();
+  } else if (cell.type === 'clear') {
+    _tabBasket = {}; _tabSelectedKey = null; renderTabBasket();
+  } else if (cell.type === 'plus') {
+    if (!_tabSelectedKey || !_tabBasket[_tabSelectedKey]) { toast('Select an item first', 'error'); return; }
+    _tabBasket[_tabSelectedKey].qty += 1; renderTabBasket();
+  } else if (cell.type === 'minus') {
+    if (!_tabSelectedKey || !_tabBasket[_tabSelectedKey]) { toast('Select an item first', 'error'); return; }
+    _tabBasket[_tabSelectedKey].qty -= 1;
+    if (_tabBasket[_tabSelectedKey].qty <= 0) { delete _tabBasket[_tabSelectedKey]; _tabSelectedKey = null; }
+    renderTabBasket();
+  } else if (cell.type === 'grid') {
+    if (cell.targetGridId && _posGrids[cell.targetGridId]) {
+      _tabStack.push(cell.targetGridId); renderTabGrid();
+    }
+  } else if (cell.type === 'back') {
+    if (_tabStack.length > 1) { _tabStack.pop(); renderTabGrid(); }
+  } else if (cell.type === 'finish') {
+    commitTabOrder();
+  }
+};
+
+document.getElementById('tabAddToOrderBtn').addEventListener('click', commitTabOrder);
+
+async function commitTabOrder() {
+  if (!_tabSelectedMemberId) { toast('Select a member first', 'error'); return; }
+  const items = Object.values(_tabBasket).map(i => ({ name: i.name, price: i.price, quantity: i.qty }));
+  if (!items.length) { toast('Add at least one drink', 'error'); return; }
+  const totalAmount = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const member = _tabMembers.find(m => m.id === _tabSelectedMemberId);
+  try {
+    await db.collection('tabOrders').add({
+      memberId: _tabSelectedMemberId,
+      memberName: member?.name || '',
+      items, totalAmount, paid: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    _tabBasket = {}; _tabSelectedKey = null; _tabStack = ['root'];
+    renderTabGrid(); renderTabBasket();
+    toast('Added to tab', 'success');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+let _tabExpandedMemberId = null;
+
+function renderTabMembersList() {
+  const el = document.getElementById('tabMembersList');
+  if (!_tabMembers.length) { el.innerHTML = '<p style="color:var(--text-muted);font-size:14px">No tab members yet.</p>'; return; }
+
+  el.innerHTML = _tabMembers.map(m => {
+    const orders  = _tabOrders.filter(o => o.memberId === m.id);
+    const total   = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+    const unpaid  = orders.filter(o => !o.paid).reduce((s, o) => s + (o.totalAmount || 0), 0);
+    const expanded = _tabExpandedMemberId === m.id;
+    const ordersHtml = expanded ? orders.map(o => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:13px">
+        <div>
+          ${(o.items || []).map(i => `${i.quantity}× ${escHtml(i.name)}`).join(', ')}
+          <span style="color:var(--text-muted)">${o.paid ? '· paid' : '· unpaid'}</span>
+        </div>
+        <div style="font-weight:700">${fmtCurrency(o.totalAmount || 0)}</div>
+      </div>`).join('') || '<p style="font-size:13px;color:var(--text-muted);padding:8px 0">No drinks recorded yet.</p>'
+      : '';
+
+    return `
+      <div class="item-row" style="flex-direction:column;align-items:stretch">
+        <div style="display:flex;align-items:center;gap:12px;width:100%">
+          <span class="item-name">${escHtml(m.name)}</span>
+          <span style="font-size:13px;color:var(--text-muted)">Total ${fmtCurrency(total)}</span>
+          ${unpaid > 0
+            ? `<span class="badge badge-warning">Owes ${fmtCurrency(unpaid)}</span>`
+            : `<span class="badge badge-success">Settled</span>`}
+          <div class="item-actions" style="margin-left:auto">
+            <button class="btn btn-secondary btn-sm" onclick="toggleTabMemberOrders('${m.id}')">${expanded ? 'Hide' : 'View'} Orders</button>
+            ${unpaid > 0 ? `<button class="btn btn-primary btn-sm" onclick="markMemberPaid('${m.id}')">Mark Paid</button>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="deleteTabMember('${m.id}')">Delete</button>
+          </div>
+        </div>
+        ${ordersHtml}
+      </div>`;
+  }).join('');
+}
+
+window.toggleTabMemberOrders = function(id) {
+  _tabExpandedMemberId = _tabExpandedMemberId === id ? null : id;
+  renderTabMembersList();
+};
+
+window.markMemberPaid = async function(id) {
+  const unpaidOrders = _tabOrders.filter(o => o.memberId === id && !o.paid);
+  if (!unpaidOrders.length) return;
+  try {
+    const batch = db.batch();
+    unpaidOrders.forEach(o => batch.update(db.collection('tabOrders').doc(o.id), {
+      paid: true, paidAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }));
+    await batch.commit();
+    toast('Marked as paid', 'success');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+};
+
+window.deleteTabMember = async function(id) {
+  const member = _tabMembers.find(m => m.id === id);
+  if (_tabOrders.some(o => o.memberId === id && !o.paid)) {
+    toast('Mark their tab as paid before removing them', 'error');
+    return;
+  }
+  if (!confirm(`Remove "${member?.name || 'this member'}" from the tab list? Their order history is kept.`)) return;
+  try {
+    await db.collection('tabMembers').doc(id).delete();
+    _tabMembers = _tabMembers.filter(m => m.id !== id);
+    if (_tabSelectedMemberId === id) selectTabMember(null);
+    renderTabMemberSelect();
+    renderTabMembersList();
+    toast('Member removed', 'info');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+};
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
