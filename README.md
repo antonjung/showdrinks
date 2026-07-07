@@ -10,62 +10,34 @@ Pre-order drinks for before, during, and after a show.
 2. Enable **Cloud Firestore** (start in production mode).
 3. Add a **Web App** to the project (Project Settings → General → Your apps).
 4. Copy the config values into `firebase-config.js`.
-5. In Firestore → Rules, set:
+5. Deploy the security rules in `firestore.rules` with `firebase deploy --only firestore:rules` —
+   admin-only collections require `request.auth != null`, the customer-facing paths the PWA needs
+   stay open to anonymous users.
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Admin config - readable by all, writable only from admin
-    match /config/{doc} {
-      allow read: if true;
-      allow write: if true; // Tighten this with Firebase Auth for production
-    }
-    // Shows - multiple shows can exist, only one flagged isCurrent is used by the PWA
-    match /shows/{id} {
-      allow read: if true;
-      allow write: if true;
-    }
-    // Menu items - read by all, write restricted
-    match /menuItems/{id} {
-      allow read: if true;
-      allow write: if true;
-    }
-    // Locations - read by all
-    match /locations/{id} {
-      allow read: if true;
-      allow write: if true;
-    }
-    // Orders - anyone can create/read their own
-    match /orders/{id} {
-      allow read, create, update: if true;
-      allow delete: if false;
-    }
-    // Show Tabs - admin-only feature for cast/crew running tabs
-    match /tabMembers/{id} {
-      allow read: if true;
-      allow write: if true;
-    }
-    match /tabOrders/{id} {
-      allow read: if true;
-      allow write: if true;
-    }
-  }
-}
-```
+### 2. Admin Login
 
-### 2. GitHub Pages
+1. Firebase Console → Authentication → Sign-in method → enable **Email/Password**.
+2. Create the first admin login: Firebase Console → Authentication → Users → Add user (email + password).
+3. Sign in at `admin.html` with that email/password. Once signed in you can add further admin
+   logins from Settings & QR → Admin Users (this uses a secondary Firebase app instance so it
+   doesn't sign you out in the process).
+4. Removing a login still has to be done from Firebase Console → Authentication → Users — there's
+   no in-app way to list/delete accounts (that needs a Cloud Function with the Admin SDK).
+5. Forgot your password? Use "Forgot password?" on the login screen, or once signed in use
+   "Change Password" in the header.
+
+### 3. GitHub Pages
 
 1. Push this repo to GitHub.
 2. Go to repo Settings → Pages → Source: `main` branch, `/ (root)`.
 3. Your site will be at `https://antonjung.github.io/showdrinks`.
 4. In `admin.html` Settings tab, set the Site URL to this address and save.
 
-### 3. PWA Icons
+### 4. PWA Icons
 
 Convert `icons/icon.svg` to `icons/icon-192.png` and `icons/icon-512.png` using any SVG-to-PNG tool (e.g. [svgtopng.com](https://svgtopng.com)).
 
-### 4. SumUp Payments (optional)
+### 5. SumUp Payments (optional)
 
 - Set payment mode to **Pay at Bar** to skip online payment (customers pay when they collect).
 - For **SumUp Online Checkout**, enter your Merchant Code in Settings. A Firebase Cloud Function is required to securely create checkouts — see `functions/` (not yet included).

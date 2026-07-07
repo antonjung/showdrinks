@@ -2,58 +2,54 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Show config, sessions, settings — readable by everyone, writable by admin
-    // (Add Firebase Auth to lock write access in production)
+    // Show config, sessions, settings — readable by everyone (PWA needs it), writable by signed-in admins only
     match /config/{doc} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     // Shows — multiple shows can exist, only one flagged isCurrent is used by the PWA
     match /shows/{id} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
-    // Menu items — readable by all customers, writable by admin
+    // Menu items — readable by all customers, writable by signed-in admins only
     match /menuItems/{id} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
-    // Collection locations — readable by all, writable by admin
+    // Collection locations — admin-only, the PWA never reads this collection directly
     match /locations/{id} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if request.auth != null;
     }
 
-    // POS grid layouts — readable by customers, writable by admin
+    // POS grid layouts — readable by customers (PWA + Show Tabs POS), writable by signed-in admins only
     match /posGrids/{id} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
-    // Per-date order counters — readable/writable for sequential order numbers
+    // Per-date order counters — anonymous customers need to increment these when placing an order
     match /counters/{id} {
       allow read, write: if true;
     }
 
-    // Orders — customers can create and read; admin can update (mark ready, set location)
+    // Orders — anonymous customers can create/read/update their own; only admins can bulk-delete
     match /orders/{id} {
       allow read: if true;
       allow create: if true;
       allow update: if true;
-      allow delete: if true;
+      allow delete: if request.auth != null;
     }
 
-    // Show Tabs — admin-only feature for cast/crew running tabs
+    // Show Tabs — admin-only feature for cast/crew running tabs, the PWA never touches these
     match /tabMembers/{id} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if request.auth != null;
     }
     match /tabOrders/{id} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if request.auth != null;
     }
   }
 }

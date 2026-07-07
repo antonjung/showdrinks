@@ -1587,6 +1587,88 @@ document.getElementById('clearAllTabsBtn').addEventListener('click', async () =>
   }
 });
 
+// ── Auth ───────────────────────────────────────────────────────────────────
+
+let _appInitialized = false;
+
+firebase.auth().onAuthStateChanged(user => {
+  const loginScreen = document.getElementById('loginScreen');
+  const adminApp = document.getElementById('adminApp');
+  if (user) {
+    loginScreen.style.display = 'none';
+    adminApp.style.display = '';
+    if (!_appInitialized) { _appInitialized = true; init(); }
+  } else {
+    adminApp.style.display = 'none';
+    loginScreen.style.display = 'flex';
+  }
+});
+
+document.getElementById('loginSubmitBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  if (!email || !password) { errEl.textContent = 'Enter your email and password'; errEl.style.display = ''; return; }
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, password);
+    document.getElementById('loginPassword').value = '';
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.style.display = '';
+  }
+});
+
+document.getElementById('loginPassword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('loginSubmitBtn').click();
+});
+
+document.getElementById('forgotPasswordLink').addEventListener('click', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  if (!email) { toast('Enter your email above first', 'error'); return; }
+  try {
+    await firebase.auth().sendPasswordResetEmail(email);
+    toast('Password reset email sent', 'success');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+});
+
+document.getElementById('signOutBtn').addEventListener('click', () => firebase.auth().signOut());
+
+document.getElementById('changePasswordBtn').addEventListener('click', async () => {
+  const newPassword = prompt('Enter your new password (min 6 characters):');
+  if (!newPassword) return;
+  if (newPassword.length < 6) { toast('Password must be at least 6 characters', 'error'); return; }
+  try {
+    await firebase.auth().currentUser.updatePassword(newPassword);
+    toast('Password updated', 'success');
+  } catch(e) {
+    toast('Failed: ' + e.message + ' — you may need to sign out and back in first', 'error');
+  }
+});
+
+document.getElementById('addAdminUserBtn').addEventListener('click', async () => {
+  const email = document.getElementById('newAdminEmail').value.trim();
+  const password = document.getElementById('newAdminPassword').value;
+  if (!email || !password) { toast('Enter an email and password', 'error'); return; }
+  if (password.length < 6) { toast('Password must be at least 6 characters', 'error'); return; }
+  let secondaryApp;
+  try {
+    secondaryApp = firebase.initializeApp(firebaseConfig, 'Secondary-' + Date.now());
+    await secondaryApp.auth().createUserWithEmailAndPassword(email, password);
+    await secondaryApp.auth().signOut();
+    document.getElementById('newAdminEmail').value = '';
+    document.getElementById('newAdminPassword').value = '';
+    toast('Admin user added', 'success');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'error');
+  } finally {
+    if (secondaryApp) await secondaryApp.delete();
+  }
+});
+
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 
 async function init() {
@@ -1600,5 +1682,3 @@ async function init() {
     toast('Firebase not configured – edit firebase-config.js', 'error');
   }
 }
-
-init();
