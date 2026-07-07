@@ -1,4 +1,4 @@
-const CACHE = 'showdrinks-1.0.76';
+const CACHE = 'showdrinks-1.0.77';
 const STATIC = [
   './',
   './index.html',

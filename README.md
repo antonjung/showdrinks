@@ -40,8 +40,26 @@ Convert `icons/icon.svg` to `icons/icon-192.png` and `icons/icon-512.png` using 
 ### 5. SumUp Payments (optional)
 
 - Set payment mode to **Pay at Bar** to skip online payment (customers pay when they collect).
-- For **SumUp Online Checkout**, enter your Merchant Code in Settings. A Firebase Cloud Function is required to securely create checkouts — see `functions/` (not yet included).
+- For **SumUp Online Checkout**, enter your Merchant Code in Settings. A Firebase Cloud Function is required to securely create checkouts — `functions/` currently only has the email-sending function (see below); a similar one for SumUp isn't built yet.
 - Settings & QR holds the **system default** payment settings. Each show can optionally override payment mode/merchant code/API key in its own Payment Settings section — leave a show's fields blank to fall back to the system default.
+
+### 6. Show Tabs Email (Brevo SMTP)
+
+The Show Tabs ✉ button sends real email via a Cloud Function (`functions/sendMemberEmail`), using
+[Brevo](https://www.brevo.com) SMTP. Requires the **Blaze (pay-as-you-go)** plan — the free tier
+comfortably covers this app's volume.
+
+1. In Brevo: SMTP & API → SMTP tab → note your **SMTP login** and **SMTP key**, and make sure the
+   "from" address you plan to use is a verified sender.
+2. Set the secrets (run these yourself so the values never end up in chat/logs):
+   ```
+   firebase functions:secrets:set SMTP_USER
+   firebase functions:secrets:set SMTP_PASS
+   firebase functions:secrets:set SMTP_FROM
+   ```
+3. Deploy: `firebase deploy --only functions`.
+4. Update a secret later: re-run the `secrets:set` command, then redeploy functions so it picks up
+   the new value.
 
 ## Usage
 
