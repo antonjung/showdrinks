@@ -43,7 +43,19 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'orders') loadOrders();
     if (btn.dataset.tab === 'tabs') loadShowTabs();
     if (btn.dataset.tab === 'pos') loadPosGrids();
+    document.getElementById('mainMenuDropdown').style.display = 'none';
   });
+});
+
+window.toggleMainMenu = function(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('mainMenuDropdown');
+  menu.style.display = menu.style.display === 'none' ? '' : 'none';
+};
+
+document.addEventListener('click', () => {
+  const menu = document.getElementById('mainMenuDropdown');
+  if (menu) menu.style.display = 'none';
 });
 
 // ── Show & Sessions ────────────────────────────────────────────────────────
