@@ -72,6 +72,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 /* ════════════════════════ ADMIN LAYOUT ════════════════════════ */
 .admin-header { background: var(--primary); color: #fff; padding: 0 24px; height: 60px; display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow-md); position: sticky; top: 0; z-index: 100; }
 .header-show-name { font-size: 14px; opacity: .85; }
+.hamburger-btn { background: none; border: none; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 6px; }
+.hamburger-btn:hover { opacity: .8; }
 
 .dropdown-menu .tab-btn { display: block; width: 100%; text-align: left; padding: 10px 12px; border: none; border-radius: 6px; background: none; font-size: 14px; font-weight: 500; color: var(--text); cursor: pointer; white-space: nowrap; transition: all .15s; }
 .dropdown-menu .tab-btn:hover { background: var(--bg); }
