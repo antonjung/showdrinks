@@ -2,6 +2,14 @@
 
 // ── Utilities ──────────────────────────────────────────────────────────────
 
+window.togglePasswordVisibility = function(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? '👁' : '🙈';
+  btn.title = showing ? 'Show password' : 'Hide password';
+};
+
 function toast(msg, type = 'info') {
   const el = document.createElement('div');
   el.className = `toast-msg ${type}`;
